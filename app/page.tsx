@@ -1,6 +1,7 @@
 'use client';
 
 import { useChat } from '@ai-sdk/react';
+import { DefaultChatTransport } from 'ai';
 import { useState, useEffect } from 'react';
 import { Send, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
 
@@ -102,7 +103,9 @@ export default function Home() {
   const [mounted, setMounted] = useState(false);
   
   const chat = useChat({
-    api: '/api/chat',
+    transport: new DefaultChatTransport({
+      api: '/api/chat',
+    }),
   });
   
   const { messages, sendMessage, status } = chat;
