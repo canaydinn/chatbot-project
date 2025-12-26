@@ -10,7 +10,13 @@ export async function GET() {
   };
 
   // Qdrant bağlantısını test et
-  let qdrantTest = { status: 'not tested' };
+  let qdrantTest: {
+    status: string;
+    collectionExists?: boolean;
+    pointsCount?: number;
+    error?: string;
+  } = { status: 'not tested' };
+  
   if (process.env.QDRANT_URL) {
     try {
       const client = new QdrantClient({
