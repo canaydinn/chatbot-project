@@ -30,7 +30,7 @@ export async function GET() {
         qdrantTest = {
           status: 'connected',
           collectionExists: true,
-          pointsCount: collection.points_count,
+          pointsCount: collection.points_count ?? undefined,
         };
       } catch (error: any) {
         if (error.status === 404) {
