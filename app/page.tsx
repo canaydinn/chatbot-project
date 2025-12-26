@@ -1,288 +1,321 @@
 'use client';
 
-import { useChat } from '@ai-sdk/react';
-import { DefaultChatTransport } from 'ai';
 import { useState, useEffect } from 'react';
-import { Send, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Loader2, Mail, User, LogIn } from 'lucide-react';
 
-// Ana bölümler verisi
-const mainSections = [
-  {
-    letter: 'A',
-    title: 'Genel Bilgiler',
-    subsections: [
-      { code: 'A.1.1', title: 'Girişimcinin Tanıtımı' },
-      { code: 'A.1.2', title: 'İş Fikri' },
-      { code: 'A.2.1', title: 'Misyon, Vizyon ve Değerler' },
-      { code: 'A.2.2', title: 'Şirket Tanımı' },
-    ],
-  },
-  {
-    letter: 'B',
-    title: 'Pazar ve Rekabet Analizi',
-    subsections: [
-      { code: 'B.1.1', title: 'Hedef Pazar' },
-      { code: 'B.1.2', title: 'Pazar Büyüklüğü' },
-      { code: 'B.2.1', title: 'Rekabet Analizi' },
-      { code: 'B.2.2', title: 'Rekabet Avantajları' },
-    ],
-  },
-  {
-    letter: 'C',
-    title: 'İş Modeli ve Operasyonlar',
-    subsections: [
-      { code: 'C.1.1', title: 'İş Modeli' },
-      { code: 'C.1.2', title: 'Gelir Modelleri' },
-      { code: 'C.2.1', title: 'Operasyonel Süreçler' },
-      { code: 'C.2.2', title: 'Tedarik Zinciri' },
-    ],
-  },
-  {
-    letter: 'D',
-    title: 'Pazarlama ve Satış',
-    subsections: [
-      { code: 'D.1.1', title: 'Pazarlama Stratejisi' },
-      { code: 'D.1.2', title: 'Satış Kanalı' },
-      { code: 'D.2.1', title: 'Müşteri Kazanımı' },
-    ],
-  },
-  {
-    letter: 'E',
-    title: 'Finansal Planlama',
-    subsections: [
-      { code: 'E.1.1', title: 'Gelir Projeksiyonları' },
-      { code: 'E.1.2', title: 'Maliyet Yapısı' },
-      { code: 'E.2.1', title: 'Finansal İhtiyaçlar' },
-    ],
-  },
-];
-
-interface SectionAccordionProps {
-  section: typeof mainSections[0];
-  isOpen: boolean;
-  onToggle: () => void;
-  onSectionClick: (code: string) => void;
-}
-
-function SectionAccordion({ section, isOpen, onToggle, onSectionClick }: SectionAccordionProps) {
-  return (
-    <div className="border-b border-gray-200 dark:border-gray-700">
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-      >
-        <div className="flex items-center gap-2">
-          <span className="font-semibold text-blue-600 dark:text-blue-400">{section.letter}</span>
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{section.title}</span>
-        </div>
-        {isOpen ? (
-          <ChevronDown className="w-4 h-4 text-gray-500" />
-        ) : (
-          <ChevronRight className="w-4 h-4 text-gray-500" />
-        )}
-      </button>
-      {isOpen && (
-        <div className="pl-4 pb-2">
-          {section.subsections.map((subsection) => (
-            <button
-              key={subsection.code}
-              onClick={() => onSectionClick(subsection.code)}
-              className="w-full text-left p-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded transition-colors"
-            >
-              <span className="text-xs text-gray-500 dark:text-gray-500 mr-2">{subsection.code}</span>
-              {subsection.title}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-export default function Home() {
+export default function LoginPage() {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
-  
-  const chat = useChat({
-    transport: new DefaultChatTransport({
-      api: '/api/chat',
-    }),
-  });
-  
-  const { messages, sendMessage, status } = chat;
-  const isLoading = status === 'submitted' || status === 'streaming';
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [isChecking, setIsChecking] = useState(false);
+  const [showRegisterForm, setShowRegisterForm] = useState(false);
 
-  const [input, setInput] = useState('');
-  const [openSections, setOpenSections] = useState<Set<string>>(new Set(['A']));
-
-  // Hydration hatasını önlemek için client-only rendering
   useEffect(() => {
     setMounted(true);
-    // Debug: sendMessage'ın varlığını kontrol et
-    if (!sendMessage) {
-      console.error('sendMessage is not available from useChat hook');
-    }
-  }, [sendMessage]);
+    // Sayfa yüklendiğinde session kontrolü yap
+    checkSession();
+  }, []);
 
-  // Client mount olana kadar hiçbir şey render etme
+  const checkSession = async () => {
+    const sessionEmail = localStorage.getItem('userEmail');
+    if (sessionEmail) {
+      // Session varsa direkt chat sayfasına yönlendir
+      router.push('/chat');
+    }
+  };
+
+  const handleCheckEmail = async () => {
+    if (!email.trim()) {
+      setError('Lütfen e-posta adresinizi girin.');
+      return;
+    }
+
+    // Basit e-posta format kontrolü
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError('Lütfen geçerli bir e-posta adresi girin.');
+      return;
+    }
+
+    setIsChecking(true);
+    setError('');
+
+    try {
+      const response = await fetch('/api/auth/check', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        if (data.exists) {
+          // E-posta kayıtlı, direkt giriş yap
+          localStorage.setItem('userEmail', email);
+          localStorage.setItem('userName', data.name || '');
+          router.push('/chat');
+          return; // Yönlendirme yapıldı, fonksiyondan çık
+        } else {
+          // E-posta kayıtlı değil, kayıt formunu göster
+          setIsChecking(false);
+          setShowRegisterForm(true);
+        }
+      } else {
+        const errorMessage = data.error || 'Bir hata oluştu. Lütfen tekrar deneyin.';
+        const hint = data.hint ? `\n\n${data.hint}` : '';
+        const details = data.details ? `\n\nDetay: ${data.details}` : '';
+        setError(errorMessage + hint + details);
+        setIsChecking(false);
+        setShowRegisterForm(false);
+      }
+    } catch (err) {
+      console.error('Error checking email:', err);
+      setError('Bağlantı hatası. Lütfen tekrar deneyin.');
+      setIsChecking(false);
+      setShowRegisterForm(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!firstName.trim() || !lastName.trim() || !email.trim()) {
+      setError('Lütfen tüm alanları doldurun.');
+      return;
+    }
+
+    // Basit e-posta format kontrolü
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError('Lütfen geçerli bir e-posta adresi girin.');
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          email: email.trim().toLowerCase(),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Başarılı kayıt, session oluştur ve chat sayfasına yönlendir
+        localStorage.setItem('userEmail', email.trim().toLowerCase());
+        localStorage.setItem('userName', `${firstName.trim()} ${lastName.trim()}`);
+        router.push('/chat');
+      } else {
+        const errorMessage = data.error || 'Kayıt sırasında bir hata oluştu. Lütfen tekrar deneyin.';
+        const hint = data.hint ? `\n\n${data.hint}` : '';
+        const details = data.details ? `\n\nDetay: ${data.details}` : '';
+        setError(errorMessage + hint + details);
+        setIsLoading(false);
+      }
+    } catch (err) {
+      console.error('Error registering:', err);
+      setError('Bağlantı hatası. Lütfen tekrar deneyin.');
+      setIsLoading(false);
+    }
+  };
+
   if (!mounted) {
     return null;
   }
 
-  const toggleSection = (letter: string) => {
-    const newOpenSections = new Set(openSections);
-    if (newOpenSections.has(letter)) {
-      newOpenSections.delete(letter);
-    } else {
-      newOpenSections.add(letter);
-    }
-    setOpenSections(newOpenSections);
-  };
-
-  const handleSectionClick = async (code: string) => {
-    const question = `${code} bölümü hakkında bilgi verir misin?`;
-    if (sendMessage) {
-      try {
-        await sendMessage({ text: question });
-      } catch (error) {
-        console.error('Error sending message:', error);
-      }
-    }
-  };
-
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Ana Chat Alanı */}
-      <div className="flex-1 flex flex-col">
-        {/* Header */}
-        <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
-          <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
-            İş Planı Danışmanı
-          </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Yönerge parçalarına dayalı iş planı danışmanlığı
-          </p>
-        </header>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
+          {/* Logo/Header */}
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-full mb-4">
+              <LogIn className="w-8 h-8 text-white" />
+            </div>
+            <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2">
+              İş Planı Danışmanı
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400">
+              Devam etmek için giriş yapın
+            </p>
+          </div>
 
-        {/* Mesajlar Alanı */}
-        <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
-          {messages.length === 0 && (
-            <div className="flex flex-col items-center justify-center h-full text-center">
-              <div className="max-w-md">
-                <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-200 mb-2">
-                  Merhaba! 👋
-                </h2>
-                <p className="text-gray-600 dark:text-gray-400 mb-4">
-                  İş planınız hakkında sorular sorabilir veya sağdaki bölümlerden birini seçerek hızlı erişim sağlayabilirsiniz.
-                </p>
-                <div className="text-sm text-gray-500 dark:text-gray-500">
-                  <p>Örnek sorular:</p>
-                  <ul className="list-disc list-inside mt-2 space-y-1">
-                    <li>Girişimci tanıtımı bölümünde neler olmalı?</li>
-                    <li>İş fikrimi nasıl değerlendirebilirim?</li>
-                    <li>Pazar analizi nasıl yapılır?</li>
-                  </ul>
-                </div>
-              </div>
+          {/* Error Message */}
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+              <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
             </div>
           )}
 
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              <div
-                className={`max-w-3xl rounded-lg px-4 py-3 ${
-                  message.role === 'user'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700'
-                }`}
+          {/* E-posta Kontrol Formu */}
+          {!isChecking && !showRegisterForm && (
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  E-posta Adresi
+                </label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="ornek@email.com"
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    disabled={isLoading}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        handleCheckEmail();
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+
+              <button
+                onClick={handleCheckEmail}
+                disabled={isLoading || !email.trim()}
+                className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center gap-2"
               >
-                <div className="text-sm font-medium mb-1 opacity-70">
-                  {message.role === 'user' ? 'Siz' : 'Asistan'}
-                </div>
-                <div className="whitespace-pre-wrap">
-                  {message.parts
-                    ?.filter((part: any) => part.type === 'text')
-                    .map((part: any) => part.text)
-                    .join('') || ''}
-                </div>
-              </div>
-            </div>
-          ))}
-
-          {isLoading && (
-            <div className="flex justify-start">
-              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-4 py-3">
-                <div className="flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin text-gray-500" />
-                  <span className="text-sm text-gray-500">Yanıt hazırlanıyor...</span>
-                </div>
-              </div>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span>Kontrol ediliyor...</span>
+                  </>
+                ) : (
+                  <span>Devam Et</span>
+                )}
+              </button>
             </div>
           )}
-        </div>
 
-        {/* Input Alanı */}
-        <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-4 py-4">
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault();
-              if (input.trim() && !isLoading && sendMessage) {
-                try {
-                  await sendMessage({ text: input });
-                  setInput('');
-                } catch (error) {
-                  console.error('Error sending message:', error);
-                }
-              }
-            }}
-            className="flex gap-2"
-          >
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Sorunuzu yazın..."
-              className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              disabled={isLoading}
-            />
-            <button
-              type="submit"
-              disabled={isLoading || !input.trim()}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-            >
-              {isLoading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <Send className="w-5 h-5" />
-              )}
-              <span className="hidden sm:inline">Gönder</span>
-            </button>
-          </form>
-        </div>
-      </div>
+          {/* Kayıt Formu */}
+          {showRegisterForm && (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Ad
+                  </label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      id="firstName"
+                      type="text"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      placeholder="Adınız"
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      disabled={isLoading}
+                      required
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Soyad
+                  </label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      id="lastName"
+                      type="text"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      placeholder="Soyadınız"
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      disabled={isLoading}
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
 
-      {/* Sidebar - Ana Bölümler */}
-      <aside className="w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 overflow-y-auto hidden lg:block">
-        <div className="p-4">
-          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">
-            Yönerge Bölümleri
-          </h2>
-          <div className="space-y-0">
-            {mainSections.map((section) => (
-              <SectionAccordion
-                key={section.letter}
-                section={section}
-                isOpen={openSections.has(section.letter)}
-                onToggle={() => toggleSection(section.letter)}
-                onSectionClick={handleSectionClick}
-              />
-            ))}
+              <div>
+                <label htmlFor="emailForm" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  E-posta Adresi
+                </label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    id="emailForm"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="ornek@email.com"
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    disabled={isLoading}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowRegisterForm(false);
+                    setFirstName('');
+                    setLastName('');
+                    setError('');
+                  }}
+                  disabled={isLoading}
+                  className="flex-1 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                >
+                  Geri
+                </button>
+                <button
+                  type="submit"
+                  disabled={isLoading || !firstName.trim() || !lastName.trim() || !email.trim()}
+                  className="flex-1 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center gap-2"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span>Kaydediliyor...</span>
+                    </>
+                  ) : (
+                    <span>Kayıt Ol</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* Footer */}
+          <div className="mt-6 text-center">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Giriş yaparak{' '}
+              <a href="#" className="text-blue-600 hover:underline">
+                Kullanım Koşulları
+              </a>
+              {' '}ve{' '}
+              <a href="#" className="text-blue-600 hover:underline">
+                Gizlilik Politikası
+              </a>
+              'nı kabul etmiş olursunuz.
+            </p>
           </div>
         </div>
-      </aside>
-
-      {/* Mobile Sidebar Toggle - Gelecekte eklenebilir */}
+      </div>
     </div>
   );
 }

@@ -1,0 +1,17 @@
+# .env.local dosyası için doğru format:
+
+GOOGLE_SERVICE_ACCOUNT_EMAIL=your-service@project.iam.gserviceaccount.com
+
+# ÖNEMLİ: GOOGLE_PRIVATE_KEY için:
+# 1. Tırnak içine alın (çift tırnak)
+# 2. \n karakterlerini koruyun
+# 3. -----BEGIN ve -----END kısımlarında 5 tire olmalı
+# 4. Private key'in TAMAMINI kopyalayın (çok uzun bir string olmalı)
+
+GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC...\n...çok uzun base64 string...\n...daha fazla satır...\n-----END PRIVATE KEY-----\n"
+
+GOOGLE_SPREADSHEET_ID=15lrjPju99gluZ0m1eG7G6ecHlr4e7UshgXC0rM7vtFA
+
+# Örnek (gerçek private key çok daha uzun olacak - yaklaşık 2000+ karakter):
+# GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC7VJTUt9Us8cKjMzEfYyjiWA4R4/M2b01ZsfJ2Ac1JBpXeoDHYhw2W\n... (çok uzun) ...\n-----END PRIVATE KEY-----\n"
+
