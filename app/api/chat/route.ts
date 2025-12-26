@@ -61,21 +61,48 @@ async function searchSimilarChunks(
 }
 
 // Context metnini oluştur
-function buildContextText(chunks: Awaited<ReturnType<typeof searchSimilarChunks>>): string {
-  return chunks
-    .map((chunk) => {
-      const parts = [
-        `## ${chunk.sectionCode} - ${chunk.title}`,
-        chunk.purpose && `**Amaç:** ${chunk.purpose}`,
-        chunk.searchedElements && `**Aranan Unsurlar:**\n${chunk.searchedElements}`,
-        chunk.scoringLogic && `**Puanlama Mantığı:**\n${chunk.scoringLogic}`,
-      ]
-        .filter(Boolean)
-        .join('\n\n');
+function buildContextText(
+  guidelineChunks: Awaited<ReturnType<typeof searchSimilarChunks>>,
+  userFileChunks: Array<{ score: number; text: string; fileName?: string; chunkIndex?: number }> = []
+): string {
+  const parts: string[] = [];
 
-      return parts;
-    })
-    .join('\n\n---\n\n');
+  // Yönerge parçaları
+  if (guidelineChunks.length > 0) {
+    parts.push('=== YÖNERGE PARÇALARI ===');
+    const guidelineText = guidelineChunks
+      .map((chunk) => {
+        const chunkParts = [
+          `## ${chunk.sectionCode} - ${chunk.title}`,
+          chunk.purpose && `**Amaç:** ${chunk.purpose}`,
+          chunk.searchedElements && `**Aranan Unsurlar:**\n${chunk.searchedElements}`,
+          chunk.scoringLogic && `**Puanlama Mantığı:**\n${chunk.scoringLogic}`,
+        ]
+          .filter(Boolean)
+          .join('\n\n');
+        return chunkParts;
+      })
+      .join('\n\n---\n\n');
+    parts.push(guidelineText);
+  }
+
+  // Kullanıcı dosyası parçaları
+  if (userFileChunks.length > 0) {
+    parts.push('\n=== KULLANICI İŞ PLANI DOSYASI ===');
+    const userFileText = userFileChunks
+      .map((chunk, index) => {
+        return `[Parça ${chunk.chunkIndex !== undefined ? chunk.chunkIndex + 1 : index + 1}${chunk.fileName ? ` - ${chunk.fileName}` : ''}]
+${chunk.text}`;
+      })
+      .join('\n\n---\n\n');
+    parts.push(userFileText);
+  }
+
+  if (parts.length === 0) {
+    return 'Yönerge parçası veya kullanıcı dosyası bulunamadı.';
+  }
+
+  return parts.join('\n\n');
 }
 
 export async function POST(req: Request) {
@@ -99,7 +126,10 @@ export async function POST(req: Request) {
 
     // Request body'yi parse et
     const body = await req.json();
-    const { messages } = body;
+    const { messages, email } = body;
+    
+    // E-posta bilgisini header'dan da alabilir (fallback)
+    const userEmail = email || req.headers.get('x-user-email');
 
     console.log('Received request body:', JSON.stringify(body, null, 2));
 
@@ -197,9 +227,16 @@ export async function POST(req: Request) {
       );
     }
 
-    // Qdrant'ta benzerlik araması yap (top 3)
-    console.log('Searching Qdrant for similar chunks...');
-    let similarChunks: Awaited<ReturnType<typeof searchSimilarChunks>>;
+    // Kullanıcı e-postasını kullan
+    let userCollectionName = null;
+    if (userEmail) {
+      const emailHash = Buffer.from(userEmail).toString('base64').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 50);
+      userCollectionName = `user_${emailHash}`;
+    }
+
+    // Qdrant'ta benzerlik araması yap (top 3 - genel yönerge)
+    console.log('Searching Qdrant for similar chunks from guideline...');
+    let similarChunks: Awaited<ReturnType<typeof searchSimilarChunks>> = [];
     try {
       similarChunks = await searchSimilarChunks(
         queryEmbedding,
@@ -207,16 +244,54 @@ export async function POST(req: Request) {
         'is_plani_rehberi',
         3
       );
-      console.log('Found', similarChunks.length, 'similar chunks');
+      console.log('Found', similarChunks.length, 'similar chunks from guideline');
     } catch (error) {
-      console.error('Error searching Qdrant:', error);
-      // Eğer Qdrant'ta hata varsa, boş context ile devam et
-      similarChunks = [];
-      console.warn('Continuing with empty context due to Qdrant error');
+      console.error('Error searching Qdrant guideline:', error);
+      console.warn('Continuing without guideline context');
     }
 
-    // Context metnini oluştur
-    const contextText = buildContextText(similarChunks);
+    // Kullanıcının yüklediği dosyadan da arama yap (varsa)
+    let userFileChunks: Array<{
+      score: number;
+      text: string;
+      fileName?: string;
+      chunkIndex?: number;
+    }> = [];
+    
+    if (userCollectionName) {
+      try {
+        // Collection'ın varlığını kontrol et
+        await qdrantClient.getCollection(userCollectionName);
+        
+        // Kullanıcı dosyasından arama yap
+        const userSearchResult = await qdrantClient.search(userCollectionName, {
+          vector: queryEmbedding,
+          limit: 3,
+          with_payload: true,
+        });
+
+        userFileChunks = userSearchResult.map((result) => ({
+          score: result.score,
+          text: result.payload?.text as string || '',
+          fileName: result.payload?.fileName as string,
+          chunkIndex: result.payload?.chunkIndex as number,
+        }));
+        
+        console.log('Found', userFileChunks.length, 'similar chunks from user file');
+      } catch (error: any) {
+        if (error.status !== 404) {
+          console.error('Error searching user file:', error);
+        }
+        // Collection yoksa veya hata varsa devam et
+        console.log('User collection not found or error, continuing without user file context');
+      }
+    }
+
+    // Context metnini oluştur (hem yönerge hem kullanıcı dosyası)
+    const contextText = buildContextText(similarChunks, userFileChunks);
+    
+    // Kullanıcı dosyası varsa, bunu belirt
+    const hasUserFile = userFileChunks.length > 0;
 
     // System prompt - iş planı değerlendirme için özelleştirilmiş
     const isEvaluationRequest = userQuestion && (
@@ -228,7 +303,7 @@ export async function POST(req: Request) {
     let systemPrompt = `Sen bir iş planı danışmanısın. Sana verilen yönerge parçalarına dayanarak kullanıcının sorularını yanıtla veya taslaklarını değerlendir. Yönerge dışına çıkma.
 
 Yönerge Parçaları:
-${contextText}`;
+${contextText}${hasUserFile ? '\n\nNot: Yukarıdaki bağlam hem genel yönerge hem de kullanıcının yüklediği iş planı dosyasından alınmıştır.' : ''}`;
 
     if (isEvaluationRequest) {
       systemPrompt += `

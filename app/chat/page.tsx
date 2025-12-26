@@ -104,10 +104,14 @@ export default function ChatPage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   
   const chat = useChat({
     transport: new DefaultChatTransport({
       api: '/api/chat',
+      headers: userEmail ? () => ({
+        'x-user-email': userEmail,
+      }) : undefined,
     }),
   });
   
@@ -116,7 +120,7 @@ export default function ChatPage() {
 
   const [input, setInput] = useState('');
   const [openSections, setOpenSections] = useState<Set<string>>(new Set(['A']));
-  const [uploadedFile, setUploadedFile] = useState<{ name: string; content: string } | null>(null);
+  const [uploadedFile, setUploadedFile] = useState<{ name: string; content: string; collectionName?: string } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
   // Session kontrolü ve hydration
@@ -124,13 +128,14 @@ export default function ChatPage() {
     setMounted(true);
     
     // Session kontrolü
-    const userEmail = localStorage.getItem('userEmail');
-    if (!userEmail) {
+    const email = localStorage.getItem('userEmail');
+    if (!email) {
       // Giriş yapılmamış, login sayfasına yönlendir
       router.push('/');
       return;
     }
     
+    setUserEmail(email);
     setIsAuthorized(true);
     
     // Debug: sendMessage'ın varlığını kontrol et
@@ -230,14 +235,40 @@ Lütfen detaylı ve yapılandırılmış bir değerlendirme raporu hazırla.`;
     setIsUploading(true);
 
     try {
-      const text = await file.text();
-      setUploadedFile({
-        name: file.name,
-        content: text,
+      // E-posta adresini al
+      const userEmail = localStorage.getItem('userEmail');
+      if (!userEmail) {
+        alert('Oturum bulunamadı. Lütfen tekrar giriş yapın.');
+        setIsUploading(false);
+        return;
+      }
+
+      // Dosyayı API'ye gönder ve Qdrant'a yükle
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('email', userEmail);
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
       });
-    } catch (error) {
-      console.error('Error reading file:', error);
-      alert('Dosya okunurken bir hata oluştu.');
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Dosya başarıyla yüklendi
+        setUploadedFile({
+          name: file.name,
+          content: `Dosya Qdrant'a yüklendi (${data.chunksCount} chunk)`,
+          collectionName: data.collectionName,
+        });
+        alert(`Dosya başarıyla yüklendi! ${data.chunksCount} parçaya ayrıldı ve Qdrant'a kaydedildi.`);
+      } else {
+        throw new Error(data.error || 'Dosya yüklenirken bir hata oluştu');
+      }
+    } catch (error: any) {
+      console.error('Error uploading file:', error);
+      alert(error.message || 'Dosya yüklenirken bir hata oluştu.');
     } finally {
       setIsUploading(false);
       // Input'u temizle
@@ -330,13 +361,9 @@ Lütfen detaylı ve yapılandırılmış bir değerlendirme raporu hazırla.`;
               e.preventDefault();
               if (input.trim() && !isLoading && sendMessage) {
                 try {
-                  // Eğer dosya yüklendiyse, içeriği prompt'a ekle
-                  let messageText = input;
-                  if (uploadedFile) {
-                    messageText = `Aşağıdaki dosya içeriğini göz önünde bulundurarak sorumu yanıtla:\n\nDosya: ${uploadedFile.name}\n\nİçerik:\n${uploadedFile.content}\n\nSoru: ${input}`;
-                  }
-                  
-                  await sendMessage({ text: messageText });
+                  // Dosya artık Qdrant'ta, direkt soruyu gönder
+                  // API otomatik olarak kullanıcının dosyasından context alacak
+                  await sendMessage({ text: input });
                   setInput('');
                 } catch (error) {
                   console.error('Error sending message:', error);
