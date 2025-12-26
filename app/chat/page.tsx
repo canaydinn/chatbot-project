@@ -4,7 +4,7 @@ import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Send, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
+import { Send, Loader2, ChevronDown, ChevronRight, Upload, X, FileText } from 'lucide-react';
 
 // Ana bölümler verisi
 const mainSections = [
@@ -116,6 +116,8 @@ export default function ChatPage() {
 
   const [input, setInput] = useState('');
   const [openSections, setOpenSections] = useState<Set<string>>(new Set(['A']));
+  const [uploadedFile, setUploadedFile] = useState<{ name: string; content: string } | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Session kontrolü ve hydration
   useEffect(() => {
@@ -161,6 +163,90 @@ export default function ChatPage() {
         console.error('Error sending message:', error);
       }
     }
+  };
+
+  const handleEvaluateBusinessPlan = async () => {
+    if (!uploadedFile) {
+      alert('Lütfen önce bir iş planı dosyası yükleyin.');
+      return;
+    }
+
+    if (!sendMessage) return;
+
+    const evaluationPrompt = `Aşağıdaki iş planını yönerge parçalarına göre detaylı olarak değerlendir ve eksik yönlerini belirle.
+
+İş Planı İçeriği:
+${uploadedFile.content}
+
+Lütfen şu başlıklar altında değerlendirme yap:
+
+1. **Genel Değerlendirme**
+   - İş planının genel yapısı ve kapsamı
+   - Güçlü yönler
+   - Genel eksiklikler
+
+2. **Bölüm Bazlı Analiz**
+   Her bölüm için (A.1.1, A.1.2, B.1.1, vb.):
+   - Bölümün mevcut olup olmadığı
+   - İçeriğin yeterliliği
+   - Yönergeye uygunluğu
+   - Eksik unsurlar
+
+3. **Eksik Bölümler**
+   - Tamamen eksik olan bölümler
+   - Kısmen eksik olan bölümler
+
+4. **Öneriler**
+   - Her eksik bölüm için öneriler
+   - İyileştirme tavsiyeleri
+   - Öncelik sırası
+
+Lütfen detaylı ve yapılandırılmış bir değerlendirme raporu hazırla.`;
+
+    try {
+      await sendMessage({ text: evaluationPrompt });
+    } catch (error) {
+      console.error('Error evaluating business plan:', error);
+      alert('Değerlendirme sırasında bir hata oluştu.');
+    }
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Dosya boyutu kontrolü (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Dosya boyutu 5MB\'dan küçük olmalıdır.');
+      return;
+    }
+
+    // Sadece .txt dosyalarını destekle (şimdilik)
+    if (!file.name.endsWith('.txt')) {
+      alert('Şu anda sadece .txt dosyaları desteklenmektedir.');
+      return;
+    }
+
+    setIsUploading(true);
+
+    try {
+      const text = await file.text();
+      setUploadedFile({
+        name: file.name,
+        content: text,
+      });
+    } catch (error) {
+      console.error('Error reading file:', error);
+      alert('Dosya okunurken bir hata oluştu.');
+    } finally {
+      setIsUploading(false);
+      // Input'u temizle
+      event.target.value = '';
+    }
+  };
+
+  const removeUploadedFile = () => {
+    setUploadedFile(null);
   };
 
   return (
@@ -244,34 +330,82 @@ export default function ChatPage() {
               e.preventDefault();
               if (input.trim() && !isLoading && sendMessage) {
                 try {
-                  await sendMessage({ text: input });
+                  // Eğer dosya yüklendiyse, içeriği prompt'a ekle
+                  let messageText = input;
+                  if (uploadedFile) {
+                    messageText = `Aşağıdaki dosya içeriğini göz önünde bulundurarak sorumu yanıtla:\n\nDosya: ${uploadedFile.name}\n\nİçerik:\n${uploadedFile.content}\n\nSoru: ${input}`;
+                  }
+                  
+                  await sendMessage({ text: messageText });
                   setInput('');
                 } catch (error) {
                   console.error('Error sending message:', error);
                 }
               }
             }}
-            className="flex gap-2"
+            className="flex flex-col gap-2"
           >
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Sorunuzu yazın..."
-              className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              disabled={isLoading}
-            />
-            <button
-              type="submit"
-              disabled={isLoading || !input.trim()}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-            >
-              {isLoading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <Send className="w-5 h-5" />
-              )}
-              <span className="hidden sm:inline">Gönder</span>
-            </button>
+            {/* Yüklenen Dosya Göstergesi */}
+            {uploadedFile && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <FileText className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <span className="text-sm text-blue-700 dark:text-blue-300 flex-1 truncate">
+                    {uploadedFile.name} ({uploadedFile.content.length} karakter)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={removeUploadedFile}
+                    className="p-1 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded transition-colors"
+                    title="Dosyayı kaldır"
+                  >
+                    <X className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleEvaluateBusinessPlan}
+                  disabled={isLoading || isUploading}
+                  className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium"
+                >
+                  <FileText className="w-4 h-4" />
+                  İş Planını Değerlendir
+                </button>
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <label className="flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 cursor-pointer transition-colors">
+                <Upload className="w-5 h-5 mr-2" />
+                <span className="hidden sm:inline">Dosya</span>
+                <input
+                  type="file"
+                  accept=".txt"
+                  onChange={handleFileUpload}
+                  disabled={isLoading || isUploading}
+                  className="hidden"
+                />
+              </label>
+              <input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Sorunuzu yazın..."
+                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={isLoading || isUploading}
+              />
+              <button
+                type="submit"
+                disabled={isLoading || !input.trim() || isUploading}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+              >
+                {isLoading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Send className="w-5 h-5" />
+                )}
+                <span className="hidden sm:inline">Gönder</span>
+              </button>
+            </div>
           </form>
         </div>
       </div>

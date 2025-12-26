@@ -151,13 +151,18 @@ export async function POST(req: Request) {
 
     // E-posta kontrolü (case-insensitive)
     const normalizedEmail = email.trim().toLowerCase();
+    console.log('Checking email:', normalizedEmail);
+    console.log('Total rows in sheet:', dataRows.length);
+    
     const existingRow = dataRows.find((row) => {
       const rowEmail = row[2]?.toString().trim().toLowerCase();
+      console.log('Comparing:', rowEmail, 'with', normalizedEmail);
       return rowEmail === normalizedEmail;
     });
 
     if (existingRow) {
       // E-posta bulundu
+      console.log('Email found in sheet');
       const firstName = existingRow[0]?.toString().trim() || '';
       const lastName = existingRow[1]?.toString().trim() || '';
       return NextResponse.json({
@@ -166,6 +171,7 @@ export async function POST(req: Request) {
       });
     }
 
+    console.log('Email not found in sheet');
     return NextResponse.json({
       exists: false,
     });

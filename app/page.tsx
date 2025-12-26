@@ -18,16 +18,15 @@ export default function LoginPage() {
   useEffect(() => {
     setMounted(true);
     // Sayfa yüklendiğinde session kontrolü yap
-    checkSession();
-  }, []);
-
-  const checkSession = async () => {
     const sessionEmail = localStorage.getItem('userEmail');
     if (sessionEmail) {
       // Session varsa direkt chat sayfasına yönlendir
+      console.log('Session found, redirecting to chat');
       router.push('/chat');
+    } else {
+      console.log('No session found, showing login form');
     }
-  };
+  }, [router]);
 
   const handleCheckEmail = async () => {
     if (!email.trim()) {
@@ -44,31 +43,51 @@ export default function LoginPage() {
 
     setIsChecking(true);
     setError('');
+    setShowRegisterForm(false); // Önce kayıt formunu kapat
 
     try {
+      console.log('Checking email:', email);
       const response = await fetch('/api/auth/check', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
       });
 
       const data = await response.json();
+      console.log('Email check response:', { 
+        status: response.status, 
+        ok: response.ok, 
+        data 
+      });
 
       if (response.ok) {
-        if (data.exists) {
-          // E-posta kayıtlı, direkt giriş yap
-          localStorage.setItem('userEmail', email);
-          localStorage.setItem('userName', data.name || '');
-          router.push('/chat');
-          return; // Yönlendirme yapıldı, fonksiyondan çık
+        // Response'un yapısını kontrol et
+        if (typeof data.exists === 'boolean') {
+          if (data.exists === true) {
+            // E-posta kayıtlı, direkt giriş yap
+            console.log('Email exists, redirecting to chat');
+            localStorage.setItem('userEmail', email.trim().toLowerCase());
+            localStorage.setItem('userName', data.name || '');
+            router.push('/chat');
+            return; // Yönlendirme yapıldı, fonksiyondan çık
+          } else {
+            // E-posta kayıtlı değil, kayıt formunu göster
+            console.log('Email does not exist, showing register form');
+            setIsChecking(false);
+            setShowRegisterForm(true);
+            return;
+          }
         } else {
-          // E-posta kayıtlı değil, kayıt formunu göster
+          // Beklenmeyen response formatı
+          console.error('Unexpected response format - exists is not boolean:', data);
+          setError('Beklenmeyen bir yanıt alındı. Lütfen tekrar deneyin.');
           setIsChecking(false);
-          setShowRegisterForm(true);
+          setShowRegisterForm(false);
         }
       } else {
+        // API hatası
         const errorMessage = data.error || 'Bir hata oluştu. Lütfen tekrar deneyin.';
         const hint = data.hint ? `\n\n${data.hint}` : '';
         const details = data.details ? `\n\nDetay: ${data.details}` : '';

@@ -126,10 +126,17 @@ export async function POST(req: Request) {
     }
 
     console.log('Extracted user question:', userQuestion);
+    console.log('User question type:', typeof userQuestion);
+    console.log('User question length:', userQuestion?.length);
 
     if (!userQuestion || typeof userQuestion !== 'string' || userQuestion.trim() === '') {
+      console.error('Invalid user question:', { userQuestion, type: typeof userQuestion });
       return new Response(
-        JSON.stringify({ error: 'User question is required and must be a non-empty string' }),
+        JSON.stringify({ 
+          error: 'User question is required and must be a non-empty string',
+          received: userQuestion,
+          type: typeof userQuestion
+        }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
@@ -211,13 +218,56 @@ export async function POST(req: Request) {
     // Context metnini oluştur
     const contextText = buildContextText(similarChunks);
 
-    // System prompt
-    const systemPrompt = `Sen bir iş planı danışmanısın. Sana verilen yönerge parçalarına dayanarak kullanıcının sorularını yanıtla veya taslaklarını değerlendir. Yönerge dışına çıkma.
+    // System prompt - iş planı değerlendirme için özelleştirilmiş
+    const isEvaluationRequest = userQuestion && (
+      userQuestion.toLowerCase().includes('değerlendir') || 
+      userQuestion.toLowerCase().includes('eksik') ||
+      userQuestion.toLowerCase().includes('iş planını')
+    );
+
+    let systemPrompt = `Sen bir iş planı danışmanısın. Sana verilen yönerge parçalarına dayanarak kullanıcının sorularını yanıtla veya taslaklarını değerlendir. Yönerge dışına çıkma.
 
 Yönerge Parçaları:
-${contextText}
+${contextText}`;
+
+    if (isEvaluationRequest) {
+      systemPrompt += `
+
+ÖNEMLİ: Kullanıcı bir iş planı değerlendirmesi istiyor. Lütfen şu yapıda detaylı bir değerlendirme yap:
+
+1. **Genel Değerlendirme**
+   - İş planının genel yapısı ve kapsamı
+   - Güçlü yönler
+   - Genel eksiklikler
+
+2. **Bölüm Bazlı Analiz**
+   Her bölüm için (A.1.1, A.1.2, B.1.1, vb.):
+   - Bölümün mevcut olup olmadığı
+   - İçeriğin yeterliliği
+   - Yönergeye uygunluğu
+   - Eksik unsurlar (amaç, aranan unsurlar, puanlama mantığı açısından)
+
+3. **Eksik Bölümler**
+   - Tamamen eksik olan bölümler (bölüm kodu ile)
+   - Kısmen eksik olan bölümler
+
+4. **Öneriler**
+   - Her eksik bölüm için öneriler
+   - İyileştirme tavsiyeleri
+   - Öncelik sırası
+
+Yönerge parçalarındaki her bölüm için (A.1.1, A.1.2, B.1.1, vb.):
+- Bölüm başlığını kontrol et
+- Amaç kısmının olup olmadığını kontrol et
+- Aranan unsurların belirtilip belirtilmediğini kontrol et
+- Puanlama mantığının açıklanıp açıklanmadığını kontrol et
+
+Lütfen detaylı, yapılandırılmış ve ölçülebilir bir değerlendirme raporu hazırla.`;
+    } else {
+      systemPrompt += `
 
 Kullanıcının sorusunu yanıtlarken yukarıdaki yönerge parçalarına dayan. Eğer soru yönerge kapsamında değilse, bunu nazikçe belirt.`;
+    }
 
     // Önceki mesajları context'e uygun şekilde hazırla
     // UIMessage formatından ModelMessage formatına çevir
