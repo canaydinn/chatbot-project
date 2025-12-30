@@ -86,16 +86,19 @@ function buildContextText(
     parts.push(guidelineText);
   }
 
-  // Kullanıcı dosyası parçaları
+  // Kullanıcı dosyası parçaları - daha belirgin format
   if (userFileChunks.length > 0) {
     parts.push('\n=== KULLANICI İŞ PLANI DOSYASI ===');
+    parts.push('ÖNEMLİ: AŞAĞIDA KULLANICININ YÜKLEDİĞİ İŞ PLANI DOSYASININ İÇERİĞİ BULUNMAKTADIR. BU İÇERİĞİ KULLANARAK DEĞERLENDİRME YAPABİLİRSİN.\n');
     const userFileText = userFileChunks
       .map((chunk, index) => {
-        return `[Parça ${chunk.chunkIndex !== undefined ? chunk.chunkIndex + 1 : index + 1}${chunk.fileName ? ` - ${chunk.fileName}` : ''}]
+        return `[İş Planı Parçası ${chunk.chunkIndex !== undefined ? chunk.chunkIndex + 1 : index + 1}${chunk.fileName ? ` - ${chunk.fileName}` : ''} - Benzerlik: ${(chunk.score * 100).toFixed(1)}%]
+İÇERİK:
 ${chunk.text}`;
       })
       .join('\n\n---\n\n');
     parts.push(userFileText);
+    parts.push('\n=== KULLANICI İŞ PLANI DOSYASI SONU ===');
   }
 
   if (parts.length === 0) {
@@ -130,6 +133,9 @@ export async function POST(req: Request) {
     
     // E-posta bilgisini header'dan da alabilir (fallback)
     const userEmail = email || req.headers.get('x-user-email');
+    console.log('User email from request:', userEmail);
+    console.log('Email from body:', email);
+    console.log('Email from header:', req.headers.get('x-user-email'));
 
     console.log('Received request body:', JSON.stringify(body, null, 2));
 
@@ -230,8 +236,15 @@ export async function POST(req: Request) {
     // Kullanıcı e-postasını kullan
     let userCollectionName = null;
     if (userEmail) {
-      const emailHash = Buffer.from(userEmail).toString('base64').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 50);
-      userCollectionName = `user_${emailHash}`;
+      try {
+        const emailHash = Buffer.from(userEmail).toString('base64').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 50);
+        userCollectionName = `user_${emailHash}`;
+        console.log('User collection name:', userCollectionName);
+      } catch (error) {
+        console.error('Error creating collection name:', error);
+      }
+    } else {
+      console.log('No user email found, skipping user file search');
     }
 
     // Qdrant'ta benzerlik araması yap (top 3 - genel yönerge)
@@ -272,7 +285,7 @@ export async function POST(req: Request) {
 
         userFileChunks = userSearchResult.map((result) => ({
           score: result.score,
-          text: result.payload?.text as string || '',
+          text: (result.payload?.text as string) || (result.payload?.originalText as string) || '',
           fileName: result.payload?.fileName as string,
           chunkIndex: result.payload?.chunkIndex as number,
         }));
@@ -292,6 +305,13 @@ export async function POST(req: Request) {
     
     // Kullanıcı dosyası varsa, bunu belirt
     const hasUserFile = userFileChunks.length > 0;
+    console.log('Context summary:', {
+      guidelineChunks: similarChunks.length,
+      userFileChunks: userFileChunks.length,
+      hasUserFile,
+      contextLength: contextText.length,
+      contextPreview: contextText.substring(0, 200) + '...',
+    });
 
     // System prompt - iş planı değerlendirme için özelleştirilmiş
     const isEvaluationRequest = userQuestion && (
@@ -302,8 +322,8 @@ export async function POST(req: Request) {
 
     let systemPrompt = `Sen bir iş planı danışmanısın. Sana verilen yönerge parçalarına dayanarak kullanıcının sorularını yanıtla veya taslaklarını değerlendir. Yönerge dışına çıkma.
 
-Yönerge Parçaları:
-${contextText}${hasUserFile ? '\n\nNot: Yukarıdaki bağlam hem genel yönerge hem de kullanıcının yüklediği iş planı dosyasından alınmıştır.' : ''}`;
+${hasUserFile ? 'ÖNEMLİ: Aşağıdaki bağlam hem genel yönerge hem de kullanıcının yüklediği iş planı dosyasından alınmıştır. Kullanıcının iş planı dosyasındaki içeriği kullanarak değerlendirme yapabilirsin.\n\n' : ''}Bağlam:
+${contextText}`;
 
     if (isEvaluationRequest) {
       systemPrompt += `
@@ -337,11 +357,13 @@ Yönerge parçalarındaki her bölüm için (A.1.1, A.1.2, B.1.1, vb.):
 - Aranan unsurların belirtilip belirtilmediğini kontrol et
 - Puanlama mantığının açıklanıp açıklanmadığını kontrol et
 
+${hasUserFile ? 'ÖNEMLİ: Yukarıdaki bağlamda "=== KULLANICI İŞ PLANI DOSYASI ===" bölümünde kullanıcının yüklediği iş planının içeriği bulunmaktadır. Bu içeriği kullanarak değerlendirme yap. Kullanıcının dosyasındaki bölümleri yönerge parçalarıyla karşılaştır ve eksiklikleri belirle.' : 'NOT: Kullanıcı henüz bir dosya yüklememiş görünüyor. Sadece yönerge parçalarına göre genel bilgi verebilirsin.'}
+
 Lütfen detaylı, yapılandırılmış ve ölçülebilir bir değerlendirme raporu hazırla.`;
     } else {
       systemPrompt += `
 
-Kullanıcının sorusunu yanıtlarken yukarıdaki yönerge parçalarına dayan. Eğer soru yönerge kapsamında değilse, bunu nazikçe belirt.`;
+Kullanıcının sorusunu yanıtlarken yukarıdaki bağlama dayan. ${hasUserFile ? 'Bu bağlam hem genel yönerge hem de kullanıcının yüklediği iş planı dosyasından alınmıştır. Kullanıcının dosyasındaki içeriği kullanabilirsin.' : ''} Eğer soru yönerge kapsamında değilse, bunu nazikçe belirt.`;
     }
 
     // Önceki mesajları context'e uygun şekilde hazırla

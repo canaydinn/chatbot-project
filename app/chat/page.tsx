@@ -142,6 +142,33 @@ export default function ChatPage() {
     if (!sendMessage) {
       console.error('sendMessage is not available from useChat hook');
     }
+
+    // Global error handler - browser extension hatalarını yakala
+    const handleError = (event: ErrorEvent) => {
+      // Browser extension hatalarını filtrele
+      if (event.message && event.message.includes('message channel closed')) {
+        event.preventDefault();
+        console.warn('Browser extension error caught and ignored:', event.message);
+        return false;
+      }
+    };
+
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      // Browser extension hatalarını filtrele
+      if (event.reason && typeof event.reason === 'string' && event.reason.includes('message channel closed')) {
+        event.preventDefault();
+        console.warn('Browser extension promise rejection caught and ignored:', event.reason);
+        return false;
+      }
+    };
+
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+    };
   }, [router, sendMessage]);
 
   // Client mount olana kadar veya yetkilendirme kontrolü yapılana kadar hiçbir şey render etme
@@ -218,17 +245,29 @@ Lütfen detaylı ve yapılandırılmış bir değerlendirme raporu hazırla.`;
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      // Input'u temizle
+      if (event.target) {
+        event.target.value = '';
+      }
+      return;
+    }
 
     // Dosya boyutu kontrolü (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       alert('Dosya boyutu 5MB\'dan küçük olmalıdır.');
+      if (event.target) {
+        event.target.value = '';
+      }
       return;
     }
 
     // Sadece .txt dosyalarını destekle (şimdilik)
     if (!file.name.endsWith('.txt')) {
       alert('Şu anda sadece .txt dosyaları desteklenmektedir.');
+      if (event.target) {
+        event.target.value = '';
+      }
       return;
     }
 
@@ -240,6 +279,9 @@ Lütfen detaylı ve yapılandırılmış bir değerlendirme raporu hazırla.`;
       if (!userEmail) {
         alert('Oturum bulunamadı. Lütfen tekrar giriş yapın.');
         setIsUploading(false);
+        if (event.target) {
+          event.target.value = '';
+        }
         return;
       }
 
@@ -248,31 +290,55 @@ Lütfen detaylı ve yapılandırılmış bir değerlendirme raporu hazırla.`;
       formData.append('file', file);
       formData.append('email', userEmail);
 
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
+      let response: Response;
+      let data: any;
 
-      const data = await response.json();
+      try {
+        response = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
 
-      if (response.ok) {
+        // Response'u parse et
+        try {
+          data = await response.json();
+        } catch (parseError) {
+          const text = await response.text();
+          throw new Error(`API yanıtı parse edilemedi: ${text.substring(0, 200)}`);
+        }
+      } catch (fetchError: any) {
+        // Network hatası
+        if (fetchError.name === 'TypeError' && fetchError.message.includes('fetch')) {
+          throw new Error('Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin.');
+        }
+        throw fetchError;
+      }
+
+      if (response.ok && data) {
         // Dosya başarıyla yüklendi
         setUploadedFile({
           name: file.name,
           content: `Dosya Qdrant'a yüklendi (${data.chunksCount} chunk)`,
           collectionName: data.collectionName,
         });
-        alert(`Dosya başarıyla yüklendi! ${data.chunksCount} parçaya ayrıldı ve Qdrant'a kaydedildi.`);
+        // Alert yerine console log kullan (daha az rahatsız edici)
+        console.log(`Dosya başarıyla yüklendi! ${data.chunksCount} parçaya ayrıldı ve Qdrant'a kaydedildi.`);
       } else {
-        throw new Error(data.error || 'Dosya yüklenirken bir hata oluştu');
+        throw new Error(data?.error || 'Dosya yüklenirken bir hata oluştu');
       }
     } catch (error: any) {
       console.error('Error uploading file:', error);
-      alert(error.message || 'Dosya yüklenirken bir hata oluştu.');
+      // Daha kullanıcı dostu hata mesajı
+      const errorMessage = error?.message || 'Dosya yüklenirken bir hata oluştu';
+      alert(`Hata: ${errorMessage}`);
     } finally {
       setIsUploading(false);
-      // Input'u temizle
-      event.target.value = '';
+      // Input'u temizle - setTimeout ile geciktir (browser extension hatalarını önlemek için)
+      setTimeout(() => {
+        if (event.target) {
+          event.target.value = '';
+        }
+      }, 100);
     }
   };
 
