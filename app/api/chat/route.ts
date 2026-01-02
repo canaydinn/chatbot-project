@@ -67,9 +67,41 @@ function buildContextText(
 ): string {
   const parts: string[] = [];
 
+  // Kullanıcı dosyası parçaları - EN BAŞTA (öncelikli)
+  if (userFileChunks.length > 0) {
+    parts.push('═══════════════════════════════════════════════════════════');
+    parts.push('║  KULLANICI İŞ PLANI DOSYASI - TAM İÇERİK                ║');
+    parts.push('═══════════════════════════════════════════════════════════');
+    parts.push('');
+    parts.push('⚠️ ÇOK ÖNEMLİ: AŞAĞIDA KULLANICININ YÜKLEDİĞİ İŞ PLANI DOSYASININ TAM İÇERİĞİ BULUNMAKTADIR.');
+    parts.push('BU İÇERİĞİ MUTLAKA KULLANARAK DEĞERLENDİRME YAPMALISIN.');
+    parts.push('ASLA "dosya yükleyemedim" veya "içerik göremiyorum" gibi mesajlar verme.');
+    parts.push('');
+    parts.push('───────────────────────────────────────────────────────────');
+    parts.push('');
+    
+    const userFileText = userFileChunks
+      .map((chunk, index) => {
+        const chunkNum = chunk.chunkIndex !== undefined ? chunk.chunkIndex + 1 : index + 1;
+        return `[BÖLÜM ${chunkNum}/${userFileChunks.length}${chunk.fileName ? ` - ${chunk.fileName}` : ''}]
+${chunk.text}`;
+      })
+      .join('\n\n───────────────────────────────────────────────────────────\n\n');
+    
+    parts.push(userFileText);
+    parts.push('');
+    parts.push('═══════════════════════════════════════════════════════════');
+    parts.push('║  KULLANICI İŞ PLANI DOSYASI SONU                       ║');
+    parts.push('═══════════════════════════════════════════════════════════');
+    parts.push('');
+  }
+
   // Yönerge parçaları
   if (guidelineChunks.length > 0) {
-    parts.push('=== YÖNERGE PARÇALARI ===');
+    parts.push('═══════════════════════════════════════════════════════════');
+    parts.push('║  YÖNERGE PARÇALARI (Değerlendirme Kriterleri)         ║');
+    parts.push('═══════════════════════════════════════════════════════════');
+    parts.push('');
     const guidelineText = guidelineChunks
       .map((chunk) => {
         const chunkParts = [
@@ -82,30 +114,16 @@ function buildContextText(
           .join('\n\n');
         return chunkParts;
       })
-      .join('\n\n---\n\n');
+      .join('\n\n───────────────────────────────────────────────────────────\n\n');
     parts.push(guidelineText);
-  }
-
-  // Kullanıcı dosyası parçaları - daha belirgin format
-  if (userFileChunks.length > 0) {
-    parts.push('\n=== KULLANICI İŞ PLANI DOSYASI ===');
-    parts.push('ÖNEMLİ: AŞAĞIDA KULLANICININ YÜKLEDİĞİ İŞ PLANI DOSYASININ İÇERİĞİ BULUNMAKTADIR. BU İÇERİĞİ KULLANARAK DEĞERLENDİRME YAPABİLİRSİN.\n');
-    const userFileText = userFileChunks
-      .map((chunk, index) => {
-        return `[İş Planı Parçası ${chunk.chunkIndex !== undefined ? chunk.chunkIndex + 1 : index + 1}${chunk.fileName ? ` - ${chunk.fileName}` : ''} - Benzerlik: ${(chunk.score * 100).toFixed(1)}%]
-İÇERİK:
-${chunk.text}`;
-      })
-      .join('\n\n---\n\n');
-    parts.push(userFileText);
-    parts.push('\n=== KULLANICI İŞ PLANI DOSYASI SONU ===');
+    parts.push('');
   }
 
   if (parts.length === 0) {
     return 'Yönerge parçası veya kullanıcı dosyası bulunamadı.';
   }
 
-  return parts.join('\n\n');
+  return parts.join('\n');
 }
 
 export async function POST(req: Request) {
@@ -131,11 +149,21 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { messages, email } = body;
     
+    // Tüm header'ları logla (debug için)
+    const allHeaders: Record<string, string> = {};
+    req.headers.forEach((value, key) => {
+      allHeaders[key] = value;
+    });
+    console.log('All request headers:', JSON.stringify(allHeaders, null, 2));
+    
     // E-posta bilgisini header'dan da alabilir (fallback)
-    const userEmail = email || req.headers.get('x-user-email');
-    console.log('User email from request:', userEmail);
+    const headerEmail = req.headers.get('x-user-email');
+    const userEmail = email || headerEmail;
+    console.log('=== EMAIL DEBUG ===');
     console.log('Email from body:', email);
-    console.log('Email from header:', req.headers.get('x-user-email'));
+    console.log('Email from header (x-user-email):', headerEmail);
+    console.log('Final userEmail:', userEmail);
+    console.log('==================');
 
     console.log('Received request body:', JSON.stringify(body, null, 2));
 
@@ -239,13 +267,28 @@ export async function POST(req: Request) {
       try {
         const emailHash = Buffer.from(userEmail).toString('base64').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 50);
         userCollectionName = `user_${emailHash}`;
+        console.log('=== COLLECTION NAME DEBUG ===');
+        console.log('User email:', userEmail);
+        console.log('Email hash (base64):', Buffer.from(userEmail).toString('base64'));
+        console.log('Email hash (cleaned):', emailHash);
         console.log('User collection name:', userCollectionName);
+        console.log('=============================');
       } catch (error) {
         console.error('Error creating collection name:', error);
       }
     } else {
-      console.log('No user email found, skipping user file search');
+      console.log('⚠️ WARNING: No user email found, skipping user file search');
+      console.log('This means the user file chunks will not be retrieved.');
+      console.log('Check if email is being sent in request body or headers.');
     }
+
+    // Değerlendirme isteği olup olmadığını ERKEN kontrol et
+    const isEvaluationRequest = userQuestion && (
+      userQuestion.toLowerCase().includes('değerlendir') || 
+      userQuestion.toLowerCase().includes('eksik') ||
+      userQuestion.toLowerCase().includes('iş planını')
+    );
+    console.log('Is evaluation request:', isEvaluationRequest);
 
     // Qdrant'ta benzerlik araması yap (top 3 - genel yönerge)
     console.log('Searching Qdrant for similar chunks from guideline...');
@@ -274,29 +317,96 @@ export async function POST(req: Request) {
     if (userCollectionName) {
       try {
         // Collection'ın varlığını kontrol et
-        await qdrantClient.getCollection(userCollectionName);
+        const collectionInfo = await qdrantClient.getCollection(userCollectionName);
+        console.log('User collection found:', userCollectionName, 'Points:', collectionInfo.points_count);
         
-        // Kullanıcı dosyasından arama yap
-        const userSearchResult = await qdrantClient.search(userCollectionName, {
-          vector: queryEmbedding,
-          limit: 3,
-          with_payload: true,
-        });
+        if (isEvaluationRequest) {
+          // Değerlendirme için: TÜM chunk'ları al
+          console.log('Evaluation request detected - fetching ALL chunks from user file');
+          const totalPoints = collectionInfo.points_count || 0;
+          
+          if (totalPoints > 0) {
+            // Tüm chunk'ları almak için scroll kullan (sayfalama ile)
+            let allPoints: any[] = [];
+            let nextPageOffset: any = null;
+            const scrollLimit = 100; // Her seferde 100 point al
+            
+            do {
+              const scrollResult = await qdrantClient.scroll(userCollectionName, {
+                limit: scrollLimit,
+                offset: nextPageOffset,
+                with_payload: true,
+                with_vector: false,
+              });
+              
+              if (scrollResult.points && scrollResult.points.length > 0) {
+                allPoints = allPoints.concat(scrollResult.points);
+                nextPageOffset = scrollResult.next_page_offset;
+                console.log(`Fetched ${allPoints.length}/${totalPoints} points so far...`);
+              } else {
+                break;
+              }
+            } while (nextPageOffset !== null && allPoints.length < totalPoints);
+            
+            // Chunk'ları işle
+            userFileChunks = allPoints
+              .map((point: any) => {
+                const text = (point.payload?.text as string) || (point.payload?.originalText as string) || '';
+                // Boş chunk'ları filtrele
+                if (!text || text.trim().length === 0) {
+                  console.warn('Found empty chunk at index:', point.payload?.chunkIndex);
+                  return null;
+                }
+                return {
+                  score: 1.0, // Tüm chunk'lar eşit önemde
+                  text: text,
+                  fileName: point.payload?.fileName as string,
+                  chunkIndex: point.payload?.chunkIndex as number,
+                };
+              })
+              .filter((chunk): chunk is NonNullable<typeof chunk> => chunk !== null);
+            
+            // Chunk'ları index'e göre sırala (dosya sırasını koru)
+            userFileChunks.sort((a, b) => {
+              const indexA = a.chunkIndex !== undefined ? a.chunkIndex : 0;
+              const indexB = b.chunkIndex !== undefined ? b.chunkIndex : 0;
+              return indexA - indexB;
+            });
+            
+            console.log('Found', userFileChunks.length, 'chunks from user file (ALL chunks for evaluation)');
+            if (userFileChunks.length > 0) {
+              console.log('First chunk preview:', userFileChunks[0].text.substring(0, 100) + '...');
+              console.log('Last chunk preview:', userFileChunks[userFileChunks.length - 1].text.substring(0, 100) + '...');
+            }
+          } else {
+            console.log('User collection is empty');
+          }
+        } else {
+          // Normal sorgu için: Benzer chunk'ları ara
+          console.log('Normal query - searching for similar chunks');
+          const userSearchResult = await qdrantClient.search(userCollectionName, {
+            vector: queryEmbedding,
+            limit: 3,
+            with_payload: true,
+          });
 
-        userFileChunks = userSearchResult.map((result) => ({
-          score: result.score,
-          text: (result.payload?.text as string) || (result.payload?.originalText as string) || '',
-          fileName: result.payload?.fileName as string,
-          chunkIndex: result.payload?.chunkIndex as number,
-        }));
-        
-        console.log('Found', userFileChunks.length, 'similar chunks from user file');
+          userFileChunks = userSearchResult.map((result) => ({
+            score: result.score,
+            text: (result.payload?.text as string) || (result.payload?.originalText as string) || '',
+            fileName: result.payload?.fileName as string,
+            chunkIndex: result.payload?.chunkIndex as number,
+          }));
+          
+          console.log('Found', userFileChunks.length, 'similar chunks from user file');
+        }
       } catch (error: any) {
-        if (error.status !== 404) {
-          console.error('Error searching user file:', error);
+        if (error.status === 404) {
+          console.log('User collection not found:', userCollectionName);
+        } else {
+          console.error('Error accessing user file:', error);
         }
         // Collection yoksa veya hata varsa devam et
-        console.log('User collection not found or error, continuing without user file context');
+        console.log('Continuing without user file context');
       }
     }
 
@@ -309,26 +419,47 @@ export async function POST(req: Request) {
       guidelineChunks: similarChunks.length,
       userFileChunks: userFileChunks.length,
       hasUserFile,
+      isEvaluationRequest,
       contextLength: contextText.length,
       contextPreview: contextText.substring(0, 200) + '...',
     });
 
-    // System prompt - iş planı değerlendirme için özelleştirilmiş
-    const isEvaluationRequest = userQuestion && (
-      userQuestion.toLowerCase().includes('değerlendir') || 
-      userQuestion.toLowerCase().includes('eksik') ||
-      userQuestion.toLowerCase().includes('iş planını')
-    );
-
     let systemPrompt = `Sen bir iş planı danışmanısın. Sana verilen yönerge parçalarına dayanarak kullanıcının sorularını yanıtla veya taslaklarını değerlendir. Yönerge dışına çıkma.
 
-${hasUserFile ? 'ÖNEMLİ: Aşağıdaki bağlam hem genel yönerge hem de kullanıcının yüklediği iş planı dosyasından alınmıştır. Kullanıcının iş planı dosyasındaki içeriği kullanarak değerlendirme yapabilirsin.\n\n' : ''}Bağlam:
+${hasUserFile ? `🚨🚨🚨 ÇOK ÖNEMLİ - MUTLAKA OKU 🚨🚨🚨
+
+Aşağıdaki bağlamda "KULLANICI İŞ PLANI DOSYASI" bölümünde kullanıcının yüklediği iş planının TAM İÇERİĞİ bulunmaktadır. 
+Bu içerik bağlamın EN BAŞINDA yer almaktadır.
+
+BU İÇERİĞİ MUTLAKA KULLANMALISIN.
+ASLA "dosya yükleyemedim", "içerik göremiyorum", "içerik paylaşın" veya "dosyaya erişimim yok" gibi mesajlar verme.
+İçerik zaten aşağıda mevcut ve senin görevin bu içeriği kullanarak değerlendirme yapmak.
+
+Eğer içeriği göremiyorsan, bağlamın başına bak - "KULLANICI İŞ PLANI DOSYASI" başlığını ara.
+
+🚨🚨🚨 YUKARIDAKİ UYARIYI MUTLAKA DİKKATE AL 🚨🚨🚨
+
+` : ''}Bağlam:
 ${contextText}`;
 
     if (isEvaluationRequest) {
       systemPrompt += `
 
-ÖNEMLİ: Kullanıcı bir iş planı değerlendirmesi istiyor. Lütfen şu yapıda detaylı bir değerlendirme yap:
+🚨🚨🚨 DEĞERLENDİRME İSTEĞİ - ÇOK ÖNEMLİ 🚨🚨🚨
+
+Kullanıcı bir iş planı değerlendirmesi istiyor. 
+
+${hasUserFile ? `YUKARIDAKİ BAĞLAMDA "KULLANICI İŞ PLANI DOSYASI" BÖLÜMÜNDE KULLANICININ YÜKLEDİĞİ İŞ PLANININ TAM İÇERİĞİ BULUNMAKTADIR.
+
+BU İÇERİĞİ MUTLAKA KULLANARAK DEĞERLENDİRME YAPMALISIN.
+
+Kullanıcının dosyasındaki bölümleri yönerge parçalarıyla karşılaştır ve eksiklikleri belirle.
+
+ASLA "dosya yükleyemedim", "içerik göremiyorum", "içerik paylaşın", "dosyaya erişimim yok" veya "görünüşe göre dosyanıza erişimim yok" gibi mesajlar verme.
+
+İçerik zaten yukarıdaki bağlamda mevcut. Bağlamın başına bak - "KULLANICI İŞ PLANI DOSYASI" başlığını bul ve içeriği kullan.` : 'Ancak kullanıcı henüz bir dosya yüklememiş görünüyor. Sadece yönerge parçalarına göre genel bilgi verebilirsin.'}
+
+Lütfen şu yapıda detaylı bir değerlendirme yap:
 
 1. **Genel Değerlendirme**
    - İş planının genel yapısı ve kapsamı
@@ -357,7 +488,15 @@ Yönerge parçalarındaki her bölüm için (A.1.1, A.1.2, B.1.1, vb.):
 - Aranan unsurların belirtilip belirtilmediğini kontrol et
 - Puanlama mantığının açıklanıp açıklanmadığını kontrol et
 
-${hasUserFile ? 'ÖNEMLİ: Yukarıdaki bağlamda "=== KULLANICI İŞ PLANI DOSYASI ===" bölümünde kullanıcının yüklediği iş planının içeriği bulunmaktadır. Bu içeriği kullanarak değerlendirme yap. Kullanıcının dosyasındaki bölümleri yönerge parçalarıyla karşılaştır ve eksiklikleri belirle.' : 'NOT: Kullanıcı henüz bir dosya yüklememiş görünüyor. Sadece yönerge parçalarına göre genel bilgi verebilirsin.'}
+${hasUserFile ? `🚨 SON HATIRLATMA 🚨
+
+Yukarıdaki bağlamda kullanıcının iş planı dosyasının TAM İÇERİĞİ mevcuttur. 
+Bağlamın başında "KULLANICI İŞ PLANI DOSYASI" başlığını bulabilirsin.
+Bu içeriği kullanarak detaylı değerlendirme yap.
+
+ASLA "dosya yükleyemedim", "içerik göremiyorum", "içerik paylaşın", "dosyaya erişimim yok" veya "görünüşe göre dosyanıza erişimim yok" gibi mesajlar verme.
+
+İçerik zaten bağlamda mevcut. Bağlamın başına bak ve içeriği kullan.` : ''}
 
 Lütfen detaylı, yapılandırılmış ve ölçülebilir bir değerlendirme raporu hazırla.`;
     } else {

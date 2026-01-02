@@ -205,10 +205,14 @@ export default function ChatPage() {
 
     if (!sendMessage) return;
 
-    const evaluationPrompt = `Aşağıdaki iş planını yönerge parçalarına göre detaylı olarak değerlendir ve eksik yönlerini belirle.
+    // Debug: Email kontrolü
+    console.log('=== EVALUATION DEBUG ===');
+    console.log('User email:', userEmail);
+    console.log('Uploaded file:', uploadedFile);
+    console.log('Collection name:', uploadedFile.collectionName);
+    console.log('=======================');
 
-İş Planı İçeriği:
-${uploadedFile.content}
+    const evaluationPrompt = `İş planını yönerge parçalarına göre detaylı olarak değerlendir ve eksik yönlerini belirle.
 
 Lütfen şu başlıklar altında değerlendirme yap:
 
