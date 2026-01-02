@@ -109,23 +109,31 @@ export default function ChatPage() {
   const chat = useChat({
     transport: new DefaultChatTransport({
       api: '/api/chat',
-      headers: userEmail ? () => ({
-        'x-user-email': userEmail,
-      }) : undefined,
-      // Custom fetch to add email to body
-      fetch: async (url, options) => {
-        if (userEmail && options?.body) {
+      fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
+        // Email'i hem header'a hem body'ye ekle
+        const headers = new Headers(init?.headers);
+        if (userEmail) {
+          headers.set('x-user-email', userEmail);
+          console.log('Adding email to header:', userEmail);
+        }
+        
+        // Body'ye email ekle
+        if (userEmail && init?.body) {
           try {
-            const bodyStr = options.body as string;
+            const bodyStr = init.body as string;
             const body = JSON.parse(bodyStr);
             body.email = userEmail;
-            options.body = JSON.stringify(body);
-          } catch {
-            // If body is not JSON, continue without modification
-            console.warn('Could not parse body to add email');
+            init.body = JSON.stringify(body);
+            console.log('Added email to body:', userEmail);
+          } catch (error) {
+            console.warn('Could not parse body to add email:', error);
           }
         }
-        return fetch(url, options);
+        
+        return fetch(input, {
+          ...init,
+          headers: headers,
+        });
       },
     }),
   });
