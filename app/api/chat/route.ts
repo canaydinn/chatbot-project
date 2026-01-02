@@ -415,31 +415,40 @@ export async function POST(req: Request) {
     
     // Kullanıcı dosyası varsa, bunu belirt
     const hasUserFile = userFileChunks.length > 0;
-    console.log('Context summary:', {
-      guidelineChunks: similarChunks.length,
-      userFileChunks: userFileChunks.length,
-      hasUserFile,
-      isEvaluationRequest,
-      contextLength: contextText.length,
-      contextPreview: contextText.substring(0, 200) + '...',
-    });
+    console.log('=== CONTEXT SUMMARY ===');
+    console.log('Guideline chunks:', similarChunks.length);
+    console.log('User file chunks:', userFileChunks.length);
+    console.log('Has user file:', hasUserFile);
+    console.log('Is evaluation request:', isEvaluationRequest);
+    console.log('Context length:', contextText.length);
+    console.log('Context preview (first 500 chars):', contextText.substring(0, 500));
+    console.log('Context contains "KULLANICI İŞ PLANI":', contextText.includes('KULLANICI İŞ PLANI'));
+    console.log('Context contains user file chunks:', userFileChunks.length > 0 && contextText.includes(userFileChunks[0]?.text?.substring(0, 50) || ''));
+    console.log('========================');
 
     let systemPrompt = `Sen bir iş planı danışmanısın. Sana verilen yönerge parçalarına dayanarak kullanıcının sorularını yanıtla veya taslaklarını değerlendir. Yönerge dışına çıkma.
 
-${hasUserFile ? `🚨🚨🚨 ÇOK ÖNEMLİ - MUTLAKA OKU 🚨🚨🚨
+${hasUserFile ? `🚨🚨🚨 ÇOK ÖNEMLİ - MUTLAKA OKU - KULLANICI DOSYASI MEVCUT 🚨🚨🚨
 
-Aşağıdaki bağlamda "KULLANICI İŞ PLANI DOSYASI" bölümünde kullanıcının yüklediği iş planının TAM İÇERİĞİ bulunmaktadır. 
-Bu içerik bağlamın EN BAŞINDA yer almaktadır.
+AŞAĞIDAKİ BAĞLAMDA "KULLANICI İŞ PLANI DOSYASI" BÖLÜMÜNDE KULLANICININ YÜKLEDİĞİ İŞ PLANININ TAM İÇERİĞİ BULUNMAKTADIR. 
+BU İÇERİK BAĞLAMIN EN BAŞINDA YER ALMAKTADIR.
 
-BU İÇERİĞİ MUTLAKA KULLANMALISIN.
-ASLA "dosya yükleyemedim", "içerik göremiyorum", "içerik paylaşın" veya "dosyaya erişimim yok" gibi mesajlar verme.
-İçerik zaten aşağıda mevcut ve senin görevin bu içeriği kullanarak değerlendirme yapmak.
+BU İÇERİĞİ MUTLAKA KULLANMALISIN VE DEĞERLENDİRME YAPMALISIN.
 
-Eğer içeriği göremiyorsan, bağlamın başına bak - "KULLANICI İŞ PLANI DOSYASI" başlığını ara.
+ASLA ŞUNLARI SÖYLEME:
+- "dosya yükleyemedim"
+- "içerik göremiyorum" 
+- "içerik paylaşın"
+- "dosyaya erişimim yok"
+- "görünüşe göre dosyanıza erişimim yok"
+- "benim için sağlanan iş planını değerlendiremediğim için"
+- "spesifik içerik üzerinde çalışamam"
 
-🚨🚨🚨 YUKARIDAKİ UYARIYI MUTLAKA DİKKATE AL 🚨🚨🚨
+İÇERİK ZATEN AŞAĞIDA MEVCUT. BAĞLAMIN BAŞINA BAK - "KULLANICI İŞ PLANI DOSYASI" BAŞLIĞINI ARA VE İÇERİĞİ KULLAN.
 
-` : ''}Bağlam:
+🚨🚨🚨 YUKARIDAKİ UYARIYI MUTLAKA DİKKATE AL - İÇERİK MEVCUT 🚨🚨🚨
+
+` : 'NOT: Kullanıcı henüz bir dosya yüklememiş görünüyor.\n\n'}Bağlam:
 ${contextText}`;
 
     if (isEvaluationRequest) {
@@ -449,15 +458,26 @@ ${contextText}`;
 
 Kullanıcı bir iş planı değerlendirmesi istiyor. 
 
-${hasUserFile ? `YUKARIDAKİ BAĞLAMDA "KULLANICI İŞ PLANI DOSYASI" BÖLÜMÜNDE KULLANICININ YÜKLEDİĞİ İŞ PLANININ TAM İÇERİĞİ BULUNMAKTADIR.
+${hasUserFile ? `🚨🚨🚨 KULLANICI DOSYASI MEVCUT - MUTLAKA KULLAN 🚨🚨🚨
+
+YUKARIDAKİ BAĞLAMDA "KULLANICI İŞ PLANI DOSYASI" BÖLÜMÜNDE KULLANICININ YÜKLEDİĞİ İŞ PLANININ TAM İÇERİĞİ BULUNMAKTADIR.
 
 BU İÇERİĞİ MUTLAKA KULLANARAK DEĞERLENDİRME YAPMALISIN.
 
 Kullanıcının dosyasındaki bölümleri yönerge parçalarıyla karşılaştır ve eksiklikleri belirle.
 
-ASLA "dosya yükleyemedim", "içerik göremiyorum", "içerik paylaşın", "dosyaya erişimim yok" veya "görünüşe göre dosyanıza erişimim yok" gibi mesajlar verme.
+ASLA ŞUNLARI SÖYLEME:
+- "dosya yükleyemedim"
+- "içerik göremiyorum"
+- "içerik paylaşın"
+- "dosyaya erişimim yok"
+- "görünüşe göre dosyanıza erişimim yok"
+- "benim için sağlanan iş planını değerlendiremediğim için"
+- "spesifik içerik üzerinde çalışamam"
 
-İçerik zaten yukarıdaki bağlamda mevcut. Bağlamın başına bak - "KULLANICI İŞ PLANI DOSYASI" başlığını bul ve içeriği kullan.` : 'Ancak kullanıcı henüz bir dosya yüklememiş görünüyor. Sadece yönerge parçalarına göre genel bilgi verebilirsin.'}
+İÇERİK ZATEN YUKARIDAKİ BAĞLAMDA MEVCUT. BAĞLAMIN BAŞINA BAK - "KULLANICI İŞ PLANI DOSYASI" BAŞLIĞINI BUL VE İÇERİĞİ KULLAN.
+
+Eğer bağlamda "KULLANICI İŞ PLANI DOSYASI" başlığını görüyorsan, içeriği kullanarak değerlendirme yap.` : '⚠️ UYARI: Kullanıcı henüz bir dosya yüklememiş görünüyor. Sadece yönerge parçalarına göre genel bilgi verebilirsin.'}
 
 Lütfen şu yapıda detaylı bir değerlendirme yap:
 

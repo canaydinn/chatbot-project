@@ -106,35 +106,59 @@ export default function ChatPage() {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   
-  const chat = useChat({
-    transport: new DefaultChatTransport({
-      api: '/api/chat',
-      fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
-        // Email'i hem header'a hem body'ye ekle
+  // Global fetch'i override et (sadece /api/chat için)
+  useEffect(() => {
+    if (!userEmail) return;
+    
+    const originalFetch = window.fetch;
+    window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      
+      // Sadece /api/chat endpoint'i için email ekle
+      if (url.includes('/api/chat')) {
+        console.log('=== GLOBAL FETCH OVERRIDE ===');
+        console.log('URL:', url);
+        console.log('User email:', userEmail);
+        
+        // Email'i header'a ekle
         const headers = new Headers(init?.headers);
-        if (userEmail) {
-          headers.set('x-user-email', userEmail);
-          console.log('Adding email to header:', userEmail);
-        }
+        headers.set('x-user-email', userEmail);
+        console.log('Added email to header:', userEmail);
         
         // Body'ye email ekle
-        if (userEmail && init?.body) {
+        if (init?.body) {
           try {
             const bodyStr = init.body as string;
             const body = JSON.parse(bodyStr);
             body.email = userEmail;
             init.body = JSON.stringify(body);
             console.log('Added email to body:', userEmail);
+            console.log('Body after:', init.body.substring(0, 200));
           } catch (error) {
             console.warn('Could not parse body to add email:', error);
           }
         }
         
-        return fetch(input, {
+        console.log('============================');
+        
+        return originalFetch(input, {
           ...init,
           headers: headers,
         });
-      },
+      }
+      
+      // Diğer request'ler için normal fetch kullan
+      return originalFetch(input, init);
+    };
+    
+    return () => {
+      window.fetch = originalFetch;
+    };
+  }, [userEmail]);
+
+  const chat = useChat({
+    transport: new DefaultChatTransport({
+      api: '/api/chat',
     }),
   });
   
