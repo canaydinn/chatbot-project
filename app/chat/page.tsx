@@ -1,7 +1,6 @@
 'use client';
 
 import { useChat } from '@ai-sdk/react';
-import { DefaultChatTransport } from 'ai';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Send, Loader2, ChevronDown, ChevronRight, Upload, X, FileText } from 'lucide-react';
@@ -106,13 +105,13 @@ export default function ChatPage() {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   
+  // @ts-expect-error - AI SDK 6.0.3 supports api and body but TypeScript types may not be up to date
   const chat = useChat({
-    transport: new DefaultChatTransport({
-      api: '/api/chat',
-      headers: userEmail ? () => ({
-        'x-user-email': userEmail,
-      }) : undefined,
-    }),
+    api: '/api/chat',
+    body: userEmail ? { email: userEmail } : undefined,
+    headers: userEmail ? {
+      'x-user-email': userEmail,
+    } : undefined,
   });
   
   const { messages, sendMessage, status } = chat;
