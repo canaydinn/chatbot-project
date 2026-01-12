@@ -492,6 +492,7 @@ Lütfen şu yapıda detaylı bir değerlendirme yap:
    - İçeriğin yeterliliği
    - Yönergeye uygunluğu
    - Eksik unsurlar (amaç, aranan unsurlar, puanlama mantığı açısından)
+   - Bölümün geliştirilmesine yönelik somut öneriler (madde madde)
 
 3. **Eksik Bölümler**
    - Tamamen eksik olan bölümler (bölüm kodu ile)
@@ -501,6 +502,12 @@ Lütfen şu yapıda detaylı bir değerlendirme yap:
    - Her eksik bölüm için öneriler
    - İyileştirme tavsiyeleri
    - Öncelik sırası
+   - Mevcut ama zayıf olan bölümler için geliştirme önerileri (bölüm kodu ile)
+
+5. **Genel Puan (0-100)**
+   - İş planını 100 üzerinden puanla
+   - Puanın kısa gerekçesini (2-4 madde) belirt
+   - Raporun EN SONUNA tek satır olarak **Genel Puan: XX/100** ekle (XX 0-100 arası tam sayı)
 
 Yönerge parçalarındaki her bölüm için (A.1.1, A.1.2, B.1.1, vb.):
 - Bölüm başlığını kontrol et

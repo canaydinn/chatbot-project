@@ -274,6 +274,7 @@ Lütfen şu başlıklar altında değerlendirme yap:
    - İçeriğin yeterliliği
    - Yönergeye uygunluğu
    - Eksik unsurlar
+   - Bölümün geliştirilmesine yönelik somut öneriler (madde madde)
 
 3. **Eksik Bölümler**
    - Tamamen eksik olan bölümler
@@ -283,6 +284,12 @@ Lütfen şu başlıklar altında değerlendirme yap:
    - Her eksik bölüm için öneriler
    - İyileştirme tavsiyeleri
    - Öncelik sırası
+   - Mevcut ama zayıf olan bölümler için geliştirme önerileri (bölüm kodu ile)
+
+5. **Genel Puan (0-100)**
+   - İş planını 100 üzerinden puanla
+   - Puanın kısa gerekçesini (2-4 madde) yaz
+   - Raporun EN SONUNA tek satır olarak ` + "`**Genel Puan: XX/100**`" + ` ekle (XX 0-100 arası tam sayı)
 
 Lütfen detaylı ve yapılandırılmış bir değerlendirme raporu hazırla.`;
 
