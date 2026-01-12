@@ -313,9 +313,12 @@ Lütfen detaylı ve yapılandırılmış bir değerlendirme raporu hazırla.`;
       return;
     }
 
-    // Sadece .txt dosyalarını destekle (şimdilik)
-    if (!file.name.endsWith('.txt')) {
-      alert('Şu anda sadece .txt dosyaları desteklenmektedir.');
+    // Desteklenen dosya türleri: .txt, .pdf, .docx
+    const fileName = file.name.toLowerCase();
+    const isSupported =
+      fileName.endsWith('.txt') || fileName.endsWith('.pdf') || fileName.endsWith('.docx');
+    if (!isSupported) {
+      alert('Şu anda sadece .txt, .pdf ve .docx dosyaları desteklenmektedir.');
       if (event.target) {
         event.target.value = '';
       }
@@ -353,7 +356,7 @@ Lütfen detaylı ve yapılandırılmış bir değerlendirme raporu hazırla.`;
         // Response'u parse et
         try {
           data = await response.json();
-        } catch (parseError) {
+        } catch {
           const text = await response.text();
           throw new Error(`API yanıtı parse edilemedi: ${text.substring(0, 200)}`);
         }
@@ -524,7 +527,7 @@ Lütfen detaylı ve yapılandırılmış bir değerlendirme raporu hazırla.`;
                 <span className="hidden sm:inline">Dosya</span>
                 <input
                   type="file"
-                  accept=".txt"
+                  accept=".txt,.pdf,.docx"
                   onChange={handleFileUpload}
                   disabled={isLoading || isUploading}
                   className="hidden"

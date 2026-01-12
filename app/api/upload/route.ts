@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { QdrantClient } from '@qdrant/js-client-rest';
 import OpenAI from 'openai';
+import mammoth from 'mammoth';
 
 // Qdrant client'ı oluştur
 function getQdrantClient() {
@@ -59,6 +60,55 @@ async function createEmbedding(text: string, openaiClient: OpenAI): Promise<numb
   return response.data[0].embedding;
 }
 
+function getErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'string') return err;
+  try {
+    return JSON.stringify(err);
+  } catch {
+    return 'Unknown error';
+  }
+}
+
+function getHttpStatus(err: unknown): number | undefined {
+  if (typeof err !== 'object' || err === null) return undefined;
+  if (!('status' in err)) return undefined;
+  const status = (err as { status?: unknown }).status;
+  return typeof status === 'number' ? status : undefined;
+}
+
+async function extractTextFromUploadedFile(file: File): Promise<string> {
+  const name = (file.name || '').toLowerCase();
+  const ext = name.includes('.') ? name.slice(name.lastIndexOf('.')) : '';
+
+  if (ext === '.txt') {
+    return await file.text();
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+
+  if (ext === '.docx') {
+    const result = await mammoth.extractRawText({ buffer });
+    return result.value;
+  }
+
+  if (ext === '.pdf') {
+    type PdfParseResult = { text?: string };
+    type PdfParseFn = (data: Buffer) => Promise<PdfParseResult>;
+
+    const mod = (await import('pdf-parse')) as unknown;
+    const pdfParse: PdfParseFn =
+      typeof mod === 'function'
+        ? (mod as PdfParseFn)
+        : ((mod as { default?: unknown }).default as PdfParseFn);
+
+    const result = await pdfParse(buffer);
+    return result.text || '';
+  }
+
+  throw new Error(`Unsupported file format: ${ext || '(no extension)'}. Supported formats: .txt, .pdf, .docx`);
+}
+
 export async function POST(req: NextRequest) {
   try {
     // Environment variable kontrolü
@@ -81,16 +131,25 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Dosyayı oku (sadece text dosyaları)
-    if (!file.name.endsWith('.txt')) {
+    // Dosyayı oku (.txt, .pdf, .docx)
+    let text = '';
+    try {
+      text = await extractTextFromUploadedFile(file);
+    } catch (e: unknown) {
       return NextResponse.json(
-        { error: 'Only .txt files are supported' },
+        { error: getErrorMessage(e) || 'Unsupported file type' },
         { status: 400 }
       );
     }
 
-    const text = await file.text();
-    console.log(`File uploaded: ${file.name}, size: ${text.length} characters`);
+    if (!text || text.trim().length === 0) {
+      return NextResponse.json(
+        { error: 'Could not extract any text from the uploaded file' },
+        { status: 400 }
+      );
+    }
+
+    console.log(`File uploaded: ${file.name}, extracted text size: ${text.length} characters`);
 
     // Collection adı (e-posta ID'sine göre)
     const emailHash = Buffer.from(email).toString('base64').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 50);
@@ -104,8 +163,8 @@ export async function POST(req: NextRequest) {
     try {
       await qdrantClient.getCollection(collectionName);
       console.log(`Collection ${collectionName} already exists, will update`);
-    } catch (error: any) {
-      if (error.status === 404) {
+    } catch (error: unknown) {
+      if (getHttpStatus(error) === 404) {
         // Collection yok, oluştur
         await qdrantClient.createCollection(collectionName, {
           vectors: {
@@ -159,12 +218,12 @@ export async function POST(req: NextRequest) {
       chunksCount: chunks.length,
       fileName: file.name,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error uploading file:', error);
     return NextResponse.json(
       {
         error: 'Failed to upload file',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        details: process.env.NODE_ENV === 'development' ? getErrorMessage(error) : undefined,
       },
       { status: 500 }
     );
