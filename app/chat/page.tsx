@@ -375,8 +375,7 @@ Lütfen detaylı ve yapılandırılmış bir değerlendirme raporu hazırla.`;
           content: `Dosya Qdrant'a yüklendi (${data.chunksCount} chunk)`,
           collectionName: data.collectionName,
         });
-        // Alert yerine console log kullan (daha az rahatsız edici)
-        console.log(`Dosya başarıyla yüklendi! ${data.chunksCount} parçaya ayrıldı ve Qdrant'a kaydedildi.`);
+        alert(`Dosya başarıyla yüklendi! ${data.chunksCount} parçaya ayrıldı ve Qdrant'a kaydedildi.`);
       } else {
         throw new Error(data?.error || 'Dosya yüklenirken bir hata oluştu');
       }
@@ -523,8 +522,12 @@ Lütfen detaylı ve yapılandırılmış bir değerlendirme raporu hazırla.`;
 
             <div className="flex gap-2">
               <label className="flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 cursor-pointer transition-colors">
-                <Upload className="w-5 h-5 mr-2" />
-                <span className="hidden sm:inline">Dosya</span>
+                {isUploading ? (
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                ) : (
+                  <Upload className="w-5 h-5 mr-2" />
+                )}
+                <span className="hidden sm:inline">{isUploading ? 'Yükleniyor...' : 'Dosya'}</span>
                 <input
                   type="file"
                   accept=".txt,.pdf,.docx"
