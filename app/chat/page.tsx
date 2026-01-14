@@ -244,7 +244,7 @@ export default function ChatPage() {
     }
   };
 
-  const handleEvaluateBusinessPlan = async () => {
+  const handleEvaluateBusinessPlanSection = async (sectionLetter: string) => {
     if (!uploadedFile) {
       alert('Lütfen önce bir iş planı dosyası yükleyin.');
       return;
@@ -257,19 +257,28 @@ export default function ChatPage() {
     console.log('User email:', userEmail);
     console.log('Uploaded file:', uploadedFile);
     console.log('Collection name:', uploadedFile.collectionName);
+    console.log('Section letter:', sectionLetter);
     console.log('=======================');
 
+    const section = mainSections.find((s) => s.letter === sectionLetter);
+    const sectionTitle = section?.title || sectionLetter;
+    const subsectionCodes = section?.subsections?.map((s) => s.code) || [];
+
     const evaluationPrompt = `İş planını yönerge parçalarına göre detaylı olarak değerlendir ve eksik yönlerini belirle.
+
+⚠️ Bu istekte SADECE "${sectionTitle}" (${sectionLetter}) ana bölümünü değerlendir:
+- Kapsam: ${sectionLetter}.* (örn: ${subsectionCodes.join(', ') || `${sectionLetter}.*`})
+- Diğer ana bölümlere girmeden, sadece bu bölümün kalitesi/eksikleri/iyileştirmeleri üzerine odaklan.
 
 Lütfen şu başlıklar altında değerlendirme yap:
 
 1. **Genel Değerlendirme**
-   - İş planının genel yapısı ve kapsamı
+   - ${sectionTitle} bölümünün genel yapısı ve kapsamı
    - Güçlü yönler
    - Genel eksiklikler
 
 2. **Bölüm Bazlı Analiz**
-   Her bölüm için (A.1.1, A.1.2, B.1.1, vb.):
+   İlgili alt bölüm kodları için (örn: ${subsectionCodes.join(', ') || `${sectionLetter}.*`}):
    - Bölümün mevcut olup olmadığı
    - İçeriğin yeterliliği
    - Yönergeye uygunluğu
@@ -277,19 +286,14 @@ Lütfen şu başlıklar altında değerlendirme yap:
    - Bölümün geliştirilmesine yönelik somut öneriler (madde madde)
 
 3. **Eksik Bölümler**
-   - Tamamen eksik olan bölümler
-   - Kısmen eksik olan bölümler
+   - Tamamen eksik olan alt bölümler (bölüm kodu ile)
+   - Kısmen eksik olan alt bölümler (bölüm kodu ile)
 
 4. **Öneriler**
-   - Her eksik bölüm için öneriler
+   - Her eksik/eksik kalan alt bölüm için öneriler (bölüm kodu ile)
    - İyileştirme tavsiyeleri
-   - Öncelik sırası
+   - Öncelik sırası (en kritik 5 aksiyon)
    - Mevcut ama zayıf olan bölümler için geliştirme önerileri (bölüm kodu ile)
-
-5. **Genel Puan (0-100)**
-   - İş planını 100 üzerinden puanla
-   - Puanın kısa gerekçesini (2-4 madde) yaz
-   - Raporun EN SONUNA tek satır olarak ` + "`**Genel Puan: XX/100**`" + ` ekle (XX 0-100 arası tam sayı)
 
 Lütfen detaylı ve yapılandırılmış bir değerlendirme raporu hazırla.`;
 
@@ -515,15 +519,20 @@ Lütfen detaylı ve yapılandırılmış bir değerlendirme raporu hazırla.`;
                     <X className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                   </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleEvaluateBusinessPlan}
-                  disabled={isLoading || isUploading}
-                  className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium"
-                >
-                  <FileText className="w-4 h-4" />
-                  İş Planını Değerlendir
-                </button>
+                <div className="flex gap-2">
+                  {mainSections.map((section) => (
+                    <button
+                      key={section.letter}
+                      type="button"
+                      onClick={() => handleEvaluateBusinessPlanSection(section.letter)}
+                      disabled={isLoading || isUploading}
+                      className="flex-1 px-2 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors text-xs font-medium"
+                      title={`${section.title} bölümünü değerlendir`}
+                    >
+                      {section.title}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
