@@ -2,7 +2,7 @@
 
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Send, Loader2, Upload, X, FileText } from 'lucide-react';
 
@@ -54,6 +54,14 @@ const mainSections = [
       { code: 'E.1.1', title: 'Gelir Projeksiyonları' },
       { code: 'E.1.2', title: 'Maliyet Yapısı' },
       { code: 'E.2.1', title: 'Finansal İhtiyaçlar' },
+    ],
+  },
+  {
+    letter: 'F',
+    title: 'SONUÇ',
+    subsections: [
+      { code: 'F.1', title: 'Genel Değerlendirme ve Yatırımcı Özeti' },
+      { code: 'F.2', title: 'SWOT Analizi (Yatırımcı Perspektifiyle)' },
     ],
   },
 ];
@@ -126,6 +134,67 @@ export default function ChatPage() {
   const [input, setInput] = useState('');
   const [uploadedFile, setUploadedFile] = useState<{ name: string; content: string; collectionName?: string } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [pendingScoreSectionLetter, setPendingScoreSectionLetter] = useState<string | null>(null);
+  const prevIsLoadingRef = useRef<boolean>(false);
+
+  const getMessageText = (message: any): string => {
+    if (!message) return '';
+    const parts = message.parts;
+    if (Array.isArray(parts)) {
+      return (
+        parts
+          .filter((part: any) => part?.type === 'text')
+          .map((part: any) => part?.text || '')
+          .join('') || ''
+      );
+    }
+    if (typeof message.text === 'string') return message.text;
+    return '';
+  };
+
+  const extractSectionScore = (text: string): number | null => {
+    if (!text) return null;
+    // Beklenen format: "Bölüm Puanı: XX/100"
+    const match = text.match(/bölüm\s*puan[ıi]\s*:\s*(\d{1,3})\s*\/\s*100/i);
+    if (!match) return null;
+    const score = Number.parseInt(match[1], 10);
+    if (!Number.isFinite(score) || score < 0 || score > 100) return null;
+    return score;
+  };
+
+  // Değerlendirme tamamlanınca puanı yakalayıp Sheet'e kaydet
+  useEffect(() => {
+    const wasLoading = prevIsLoadingRef.current;
+    prevIsLoadingRef.current = isLoading;
+
+    if (!wasLoading || isLoading) return;
+    if (!pendingScoreSectionLetter || !userEmail) return;
+
+    const lastAssistantMessage = [...messages].reverse().find((m: any) => m?.role === 'assistant');
+    const assistantText = getMessageText(lastAssistantMessage);
+    const score = extractSectionScore(assistantText);
+
+    // Tek seferlik: ne olursa olsun bu değerlendirme için beklemeyi kapat
+    setPendingScoreSectionLetter(null);
+
+    if (score === null) {
+      console.warn('Score not found in assistant response. Expected: "Bölüm Puanı: XX/100"');
+      return;
+    }
+
+    // Sheet'e kaydet
+    fetch('/api/scores', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: userEmail,
+        sectionLetter: pendingScoreSectionLetter,
+        score,
+      }),
+    }).catch((err) => {
+      console.error('Failed to save score to sheet:', err);
+    });
+  }, [isLoading, messages, pendingScoreSectionLetter, userEmail]);
 
   // Session kontrolü ve hydration
   useEffect(() => {
@@ -187,6 +256,9 @@ export default function ChatPage() {
     }
 
     if (!sendMessage) return;
+
+    // Bu tıklama için puan kaydını hazırlıyoruz (yanıt bitince Sheet'e yazacağız)
+    setPendingScoreSectionLetter(sectionLetter);
 
     const evaluationPromptBySection: Record<string, string> = {
       A: `İş planını yönerge parçalarına göre detaylı olarak değerlendir ve eksik yönlerini belirle. 
@@ -253,29 +325,29 @@ Lütfen şu başlıklar altında değerlendirme yap:
 Lütfen detaylı ve yapılandırılmış bir değerlendirme raporu hazırla.`,
       C: ` İş planını yönerge parçalarına göre detaylı olarak değerlendir ve eksik yönlerini belirle. 
 ⚠️ Bu istekte SADECE " C. TEKNİK ANALİZ" (C) ana bölümünü değerlendir:
- - Kapsam: C.* (C.1.1., C.1.2., C.1.3., C.1.4., C.2.1., C.2.2., C.2.3., C.2.4., C.2.5., C.2.6., C.3., C.4.1., C.4.2., C.4.3., C.4.4.)
+- Kapsam: C.* (C.1. Ürün / Hizmetin Teknik Tanımı, C.1.1. Teknik Özellikler, C.1.2. Teknolojik Üstünlükler, C.1.3. Ürün Yaşam Döngüsü, C.1.4. Prototip Durumu / TRL Seviyesi, C.2. Üretim ve Operasyon, C.2.1. Üretim Süreci ve Kapasitesi , C.2.2. Tedarikçiler, C.2.3. Makine, Hammadde vb. Kaynakların Seçimi, C.2.4. İş Akış Şeması, C.2.5. Kalite Güvence Sistemleri, C.2.6. Çevresel Etki, C.3. Kuruluş Yeri Seçimi, C.4. Ar-Ge ve Geliştirme Planı, C.4.1. Milestones, C.4.2. Gelecek Geliştirmeler, C.4.3. Ar-Ge Kaynak Planı, C.4.4.  Riskler ve Alternatif Teknik Çözümler)
 - Diğer ana bölümlere girmeden, sadece bu bölümün kalitesi/eksikleri/iyileştirmeleri üzerine odaklan. 
 
 Lütfen şu başlıklar altında değerlendirme yap: 
 
-1. **Genel Değerlendirme** 
+1. *Genel Değerlendirme* 
 - C. TEKNİK ANALİZ bölümünün genel yapısı ve kapsamı
  - Güçlü yönler 
 - Genel eksiklikler 
 
-2. **Bölüm Bazlı Analiz** 
-İlgili alt bölüm kodları için (C.1.1., C.1.2., C.1.3., C.1.4., C.2.1., C.2.2., C.2.3., C.2.4., C.2.5., C.2.6., C.3., C.4.1., C.4.2., C.4.3., C.4.4.):
+2. *Bölüm Bazlı Analiz* 
+İlgili alt bölüm kodları için (C.1. Ürün / Hizmetin Teknik Tanımı, C.1.1. Teknik Özellikler, C.1.2. Teknolojik Üstünlükler, C.1.3. Ürün Yaşam Döngüsü, C.1.4. Prototip Durumu / TRL Seviyesi, C.2. Üretim ve Operasyon, C.2.1. Üretim Süreci ve Kapasitesi , C.2.2. Tedarikçiler, C.2.3. Makine, Hammadde vb. Kaynakların Seçimi, C.2.4. İş Akış Şeması, C.2.5. Kalite Güvence Sistemleri, C.2.6. Çevresel Etki, C.3. Kuruluş Yeri Seçimi, C.4. Ar-Ge ve Geliştirme Planı, C.4.1. Milestones, C.4.2. Gelecek Geliştirmeler, C.4.3. Ar-Ge Kaynak Planı, C.4.4.  Riskler ve Alternatif Teknik Çözümler):
  - Bölümün mevcut olup olmadığı 
 - İçeriğin yeterliliği 
 - Yönergeye uygunluğu 
 - Eksik unsurlar
 - Bölümün geliştirilmesine yönelik somut öneriler (madde madde) 
 
-3. **Eksik Bölümler** 
+3. *Eksik Bölümler* 
 - Tamamen eksik olan alt bölümler (bölüm kodu ile) 
 - Kısmen eksik olan alt bölümler (bölüm kodu ile) 
 
-4. **Öneriler** 
+4. *Öneriler* 
 - Her eksik/eksik kalan alt bölüm için öneriler (bölüm kodu ile) 
 - İyileştirme tavsiyeleri 
 - Öncelik sırası (en kritik 5 aksiyon) 
@@ -284,29 +356,29 @@ Lütfen şu başlıklar altında değerlendirme yap:
 Lütfen detaylı ve yapılandırılmış bir değerlendirme raporu hazırla.`,
       D: `İş planını yönerge parçalarına göre detaylı olarak değerlendir ve eksik yönlerini belirle. 
 ⚠️ Bu istekte SADECE " D. ORGANİZASYONEL ANALİZ" (D) ana bölümünü değerlendir:
- - Kapsam: D.* (D.1.1, D.1.2., D.2.1., D.2.2., D.3.)
+- Kapsam: D.* (D.1. Organizasyon Yapısı, D.1.1. Örgüt Şeması, D.1.2. İş Tanımı ve İş Şartnameleri, D.2. İnsan Kaynakları Planı, D.2.1. Personel İhtiyacı, D.2.2. Eğitim ve İşe Alım Stratejileri, D.3. İşgücü Maliyetleri)
 - Diğer ana bölümlere girmeden, sadece bu bölümün kalitesi/eksikleri/iyileştirmeleri üzerine odaklan. 
 
 Lütfen şu başlıklar altında değerlendirme yap: 
 
-1. **Genel Değerlendirme** 
+1. *Genel Değerlendirme* 
 - D. ORGANİZASYONEL ANALİZ bölümünün genel yapısı ve kapsamı
  - Güçlü yönler 
 - Genel eksiklikler 
 
-2. **Bölüm Bazlı Analiz** 
-İlgili alt bölüm kodları için (D.1.1, D.1.2., D.2.1., D.2.2., D.3.):
+2. *Bölüm Bazlı Analiz* 
+İlgili alt bölüm kodları için (D.1. Organizasyon Yapısı, D.1.1. Örgüt Şeması, D.1.2. İş Tanımı ve İş Şartnameleri, D.2. İnsan Kaynakları Planı, D.2.1. Personel İhtiyacı, D.2.2. Eğitim ve İşe Alım Stratejileri, D.3. İşgücü Maliyetleri):
  - Bölümün mevcut olup olmadığı 
 - İçeriğin yeterliliği 
 - Yönergeye uygunluğu 
 - Eksik unsurlar
 - Bölümün geliştirilmesine yönelik somut öneriler (madde madde) 
 
-3. **Eksik Bölümler** 
+3. *Eksik Bölümler* 
 - Tamamen eksik olan alt bölümler (bölüm kodu ile) 
 - Kısmen eksik olan alt bölümler (bölüm kodu ile) 
 
-4. **Öneriler** 
+4. *Öneriler* 
 - Her eksik/eksik kalan alt bölüm için öneriler (bölüm kodu ile) 
 - İyileştirme tavsiyeleri 
 - Öncelik sırası (en kritik 5 aksiyon) 
@@ -315,29 +387,60 @@ Lütfen şu başlıklar altında değerlendirme yap:
 Lütfen detaylı ve yapılandırılmış bir değerlendirme raporu hazırla.`,
       E: `İş planını yönerge parçalarına göre detaylı olarak değerlendir ve eksik yönlerini belirle. 
 ⚠️ Bu istekte SADECE " E. FİNANSAL ANALİZ " (E) ana bölümünü değerlendir:
- - Kapsam: E.* (E.1., E.2., E.3., E.4.1., E.4.2., E.5., E.6., E.7., E.8., E.9.)
+- Kapsam: E.* (E.1. Temel Finansal Varsayımlar ve Birim Ekonomi, E.2. Birim Ekonomi Göstergeleri, E.3. Gelirler, E.4. Giderler Analizi, E.4.1. Kuruluş Sermayesi, E.4.2. İşletme Sermayesini Oluşturan Temel Kalemler, E.5. Başa Baş Noktası Analizi, E.6. Gelir-Gider Tablosu, E.7. Karlılık Analizi, E.8. Toplam Sermaye İhtiyacı ve Finansman Kaynakları, E.9. Finansal Riskler ve Duyarlılık Analizi)
 - Diğer ana bölümlere girmeden, sadece bu bölümün kalitesi/eksikleri/iyileştirmeleri üzerine odaklan. 
 
 Lütfen şu başlıklar altında değerlendirme yap: 
 
-1. **Genel Değerlendirme** 
+1. *Genel Değerlendirme* 
 - E. FİNANSAL ANALİZ bölümünün genel yapısı ve kapsamı
  - Güçlü yönler 
 - Genel eksiklikler 
 
-2. **Bölüm Bazlı Analiz** 
-İlgili alt bölüm kodları için (E.1., E.2., E.3., E.4.1., E.4.2., E.5., E.6., E.7., E.8., E.9.):
+2. *Bölüm Bazlı Analiz* 
+İlgili alt bölüm kodları için (E.1. Temel Finansal Varsayımlar ve Birim Ekonomi, E.2. Birim Ekonomi Göstergeleri, E.3. Gelirler, E.4. Giderler Analizi, E.4.1. Kuruluş Sermayesi, E.4.2. İşletme Sermayesini Oluşturan Temel Kalemler, E.5. Başa Baş Noktası Analizi, E.6. Gelir-Gider Tablosu, E.7. Karlılık Analizi, E.8. Toplam Sermaye İhtiyacı ve Finansman Kaynakları, E.9. Finansal Riskler ve Duyarlılık Analizi):
  - Bölümün mevcut olup olmadığı 
 - İçeriğin yeterliliği 
 - Yönergeye uygunluğu 
 - Eksik unsurlar
 - Bölümün geliştirilmesine yönelik somut öneriler (madde madde) 
 
-3. **Eksik Bölümler** 
+3. *Eksik Bölümler* 
 - Tamamen eksik olan alt bölümler (bölüm kodu ile) 
 - Kısmen eksik olan alt bölümler (bölüm kodu ile) 
 
-4. **Öneriler** 
+4. *Öneriler* 
+- Her eksik/eksik kalan alt bölüm için öneriler (bölüm kodu ile) 
+- İyileştirme tavsiyeleri 
+- Öncelik sırası (en kritik 5 aksiyon) 
+- Mevcut ama zayıf olan bölümler için geliştirme önerileri (bölüm kodu ile) 
+
+Lütfen detaylı ve yapılandırılmış bir değerlendirme raporu hazırla.`,
+      F: `İş planını yönerge parçalarına göre detaylı olarak değerlendir ve eksik yönlerini belirle. 
+⚠️ Bu istekte SADECE " F. SONUÇ" (F) ana bölümünü değerlendir:
+ - Kapsam: F.* (F.1.Genel Değerlendirme ve Yatırımcı Özeti, F.2. SWOT Analizi (Yatırımcı Perspektifiyle))
+- Diğer ana bölümlere girmeden, sadece bu bölümün kalitesi/eksikleri/iyileştirmeleri üzerine odaklan. 
+
+Lütfen şu başlıklar altında değerlendirme yap: 
+
+1. *Genel Değerlendirme* 
+- F. SONUÇ bölümünün genel yapısı ve kapsamı
+ - Güçlü yönler 
+- Genel eksiklikler 
+
+2. *Bölüm Bazlı Analiz* 
+İlgili alt bölüm kodları için (F.1.Genel Değerlendirme ve Yatırımcı Özeti, F.2. SWOT Analizi (Yatırımcı Perspektifiyle)):
+ - Bölümün mevcut olup olmadığı 
+- İçeriğin yeterliliği 
+- Yönergeye uygunluğu 
+- Eksik unsurlar
+- Bölümün geliştirilmesine yönelik somut öneriler (madde madde) 
+
+3. *Eksik Bölümler* 
+- Tamamen eksik olan alt bölümler (bölüm kodu ile) 
+- Kısmen eksik olan alt bölümler (bölüm kodu ile) 
+
+4. *Öneriler* 
 - Her eksik/eksik kalan alt bölüm için öneriler (bölüm kodu ile) 
 - İyileştirme tavsiyeleri 
 - Öncelik sırası (en kritik 5 aksiyon) 
@@ -354,7 +457,10 @@ Lütfen detaylı ve yapılandırılmış bir değerlendirme raporu hazırla.`,
     console.log('Section letter:', sectionLetter);
     console.log('=======================');
 
-    const evaluationPrompt = evaluationPromptBySection[sectionLetter] || evaluationPromptBySection.A;
+    const basePrompt = evaluationPromptBySection[sectionLetter] || evaluationPromptBySection.A;
+    const evaluationPrompt =
+      basePrompt +
+      `\n\n5. *Puan (0-100)*\n- Bu bölüm için 0-100 arası tam sayı puan ver.\n- Raporun EN SONUNA tek satır olarak "Bölüm Puanı: XX/100" ekle (XX 0-100 arası tam sayı).`;
 
     try {
       await sendMessage({ text: evaluationPrompt });
