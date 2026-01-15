@@ -287,7 +287,22 @@ export default function ChatPage() {
     const evaluationPromptBySection: Record<string, string> = {
       A: `İş planını yönerge parçalarına göre detaylı olarak değerlendir ve eksik yönlerini belirle. 
 ⚠️ Bu istekte SADECE " BÖLÜM A – GENEL BİLGİLER" (A) ana bölümünü değerlendir:
- - Kapsam: A.* (A.1.1., A.1.2., A.2.1., A.2.2., A.2.3., A.2.4., A.3.1., A.3.2., A.3.3., A.4.1., A.4.2., A.5., A.6.) 
+ - Kapsam: A.* (A.1.1. Girişimcinin Tanıtımı
+A.1.2. İş Fikri
+A.2. Şirket Tanıtımı
+A.2.1. Misyon, Vizyon ve Değerler
+A.2.2. Şirket Tanımı
+A.2.3. Sahiplik Yapısı
+A.2.4. Endüstri, Konum, Tarihçe ve Mevcut Durum
+A.3.Ürün/Hizmetin Genel Tanıtımı
+A.3.1. Müşteriye Sağlanan Değer
+A.3.2.Yenilikçi Yönler
+A.3.3. Fikri Mülkiyet / Patent / Marka Durumu ve Süreci
+A.4. İş Modeli
+A.4.1. Gelir Modeli
+A.4.2. Temel Kaynaklar / Yetkinlikler
+A.5. Kuruluş ve Girişim Süreci
+A.6. Hedefler) 
 - Diğer ana bölümlere girmeden, sadece bu bölümün kalitesi/eksikleri/iyileştirmeleri üzerine odaklan. 
 
 Lütfen şu başlıklar altında değerlendirme yap: 
@@ -298,7 +313,7 @@ Lütfen şu başlıklar altında değerlendirme yap:
 - Genel eksiklikler 
 
 2. **Bölüm Bazlı Analiz** 
-İlgili alt bölüm kodları için (A.1.1., A.1.2., A.2.1., A.2.2., A.2.3., A.2.4., A.3.1., A.3.2., A.3.3., A.4.1., A.4.2., A.5., A.6.):
+İlgili alt bölüm kodları için (A.1.1. Girişimcinin Tanıtımı, A.1.2. İş Fikri, A.2. Şirket Tanıtımı, A.2.1. Misyon, Vizyon ve Değerler, A.2.2. Şirket Tanımı, A.2.3. Sahiplik Yapısı, A.2.4. Endüstri, Konum, Tarihçe ve Mevcut Durum, A.3.Ürün/Hizmetin Genel Tanıtımı, A.3.1. Müşteriye Sağlanan Değer, A.3.2.Yenilikçi Yönler, A.3.3. Fikri Mülkiyet / Patent / Marka Durumu ve Süreci, A.4. İş Modeli, A.4.1. Gelir Modeli, A.4.2. Temel Kaynaklar / Yetkinlikler, A.5. Kuruluş ve Girişim Süreci, A.6. Hedefler):
  - Bölümün mevcut olup olmadığı 
 - İçeriğin yeterliliği 
 - Yönergeye uygunluğu 
@@ -318,7 +333,7 @@ Lütfen şu başlıklar altında değerlendirme yap:
 Lütfen detaylı ve yapılandırılmış bir değerlendirme raporu hazırla.`,
       B: `İş planını yönerge parçalarına göre detaylı olarak değerlendir ve eksik yönlerini belirle. 
 ⚠️ Bu istekte SADECE " BÖLÜM B – PAZAR ANALİZİ" (B) ana bölümünü değerlendir:
- - Kapsam: B.* (B.1.1., B.1.2., B.2.1., B.2.2., B.2.3., B.3.1., B.3.2., B.3.3., B.4.1., B.4.2., B.4.3., B.4.4., B.4.5., B.4.6.) 
+ - Kapsam: B.* (B.1. Sektör Analizi, B.1.1. Pazar Büyüklüğü, B.1.2. Pazarın Gelişim Potansiyeli ve Trendleri, B.2. Rekabet Analizi, B.2.1. Doğrudan ve Dolaylı Rakipler, B.2.2. Rakiplerin Güçlü ve Zayıf Yönleri, B.2.3. Pazara Giriş Engelleri, B.3. Müşteri Analizi, B.3.1. Müşteri Doğrulama, B.3.2. Müşteri Segmentasyonu, B.3.3. Müşteri Profilleri, B.4. Pazarlama & Satış Stratejileri, B.4.1. Konumlandırma, B.4.2. Fiyatlandırma, B.4.3. Dağıtım Kanalları, B.4.4. Reklam ve Proomosyon, B.4.5. Satış Sonrası Hizmetler, B.4.6. Satış Projeksiyonları) 
 - Diğer ana bölümlere girmeden, sadece bu bölümün kalitesi/eksikleri/iyileştirmeleri üzerine odaklan. 
 
 Lütfen şu başlıklar altında değerlendirme yap: 
@@ -329,7 +344,7 @@ Lütfen şu başlıklar altında değerlendirme yap:
 - Genel eksiklikler 
 
 2. **Bölüm Bazlı Analiz** 
-İlgili alt bölüm kodları için (B.1.1., B.1.2., B.2.1., B.2.2., B.2.3., B.3.1., B.3.2., B.3.3., B.4.1., B.4.2., B.4.3., B.4.4., B.4.5., B.4.6.):
+İlgili alt bölüm kodları için (B.1. Sektör Analizi, B.1.1. Pazar Büyüklüğü, B.1.2. Pazarın Gelişim Potansiyeli ve Trendleri, B.2. Rekabet Analizi, B.2.1. Doğrudan ve Dolaylı Rakipler, B.2.2. Rakiplerin Güçlü ve Zayıf Yönleri, B.2.3. Pazara Giriş Engelleri, B.3. Müşteri Analizi, B.3.1. Müşteri Doğrulama, B.3.2. Müşteri Segmentasyonu, B.3.3. Müşteri Profilleri, B.4. Pazarlama & Satış Stratejileri, B.4.1. Konumlandırma, B.4.2. Fiyatlandırma, B.4.3. Dağıtım Kanalları, B.4.4. Reklam ve Proomosyon, B.4.5. Satış Sonrası Hizmetler, B.4.6. Satış Projeksiyonları):
  - Bölümün mevcut olup olmadığı 
 - İçeriğin yeterliliği 
 - Yönergeye uygunluğu 
