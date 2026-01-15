@@ -188,6 +188,164 @@ export default function ChatPage() {
 
     if (!sendMessage) return;
 
+    const evaluationPromptBySection: Record<string, string> = {
+      A: `İş planını yönerge parçalarına göre detaylı olarak değerlendir ve eksik yönlerini belirle. 
+⚠️ Bu istekte SADECE " BÖLÜM A – GENEL BİLGİLER" (A) ana bölümünü değerlendir:
+ - Kapsam: A.* (A.1.1., A.1.2., A.2.1., A.2.2., A.2.3., A.2.4., A.3.1., A.3.2., A.3.3., A.4.1., A.4.2., A.5., A.6.) 
+- Diğer ana bölümlere girmeden, sadece bu bölümün kalitesi/eksikleri/iyileştirmeleri üzerine odaklan. 
+
+Lütfen şu başlıklar altında değerlendirme yap: 
+
+1. **Genel Değerlendirme** 
+- BÖLÜM A – GENEL BİLGİLER bölümünün genel yapısı ve kapsamı
+ - Güçlü yönler 
+- Genel eksiklikler 
+
+2. **Bölüm Bazlı Analiz** 
+İlgili alt bölüm kodları için (A.1.1., A.1.2., A.2.1., A.2.2., A.2.3., A.2.4., A.3.1., A.3.2., A.3.3., A.4.1., A.4.2., A.5., A.6.):
+ - Bölümün mevcut olup olmadığı 
+- İçeriğin yeterliliği 
+- Yönergeye uygunluğu 
+- Eksik unsurlar
+- Bölümün geliştirilmesine yönelik somut öneriler (madde madde) 
+
+3. **Eksik Bölümler** 
+- Tamamen eksik olan alt bölümler (bölüm kodu ile) 
+- Kısmen eksik olan alt bölümler (bölüm kodu ile) 
+
+4. **Öneriler** 
+- Her eksik/eksik kalan alt bölüm için öneriler (bölüm kodu ile) 
+- İyileştirme tavsiyeleri 
+- Öncelik sırası (en kritik 5 aksiyon) 
+- Mevcut ama zayıf olan bölümler için geliştirme önerileri (bölüm kodu ile) 
+
+Lütfen detaylı ve yapılandırılmış bir değerlendirme raporu hazırla.`,
+      B: `İş planını yönerge parçalarına göre detaylı olarak değerlendir ve eksik yönlerini belirle. 
+⚠️ Bu istekte SADECE " BÖLÜM B – PAZAR ANALİZİ" (B) ana bölümünü değerlendir:
+ - Kapsam: B.* (B.1.1., B.1.2., B.2.1., B.2.2., B.2.3., B.3.1., B.3.2., B.3.3., B.4.1., B.4.2., B.4.3., B.4.4., B.4.5., B.4.6.) 
+- Diğer ana bölümlere girmeden, sadece bu bölümün kalitesi/eksikleri/iyileştirmeleri üzerine odaklan. 
+
+Lütfen şu başlıklar altında değerlendirme yap: 
+
+1. **Genel Değerlendirme** 
+- BÖLÜM B – PAZAR ANALİZİ bölümünün genel yapısı ve kapsamı
+ - Güçlü yönler 
+- Genel eksiklikler 
+
+2. **Bölüm Bazlı Analiz** 
+İlgili alt bölüm kodları için (B.1.1., B.1.2., B.2.1., B.2.2., B.2.3., B.3.1., B.3.2., B.3.3., B.4.1., B.4.2., B.4.3., B.4.4., B.4.5., B.4.6.):
+ - Bölümün mevcut olup olmadığı 
+- İçeriğin yeterliliği 
+- Yönergeye uygunluğu 
+- Eksik unsurlar
+- Bölümün geliştirilmesine yönelik somut öneriler (madde madde) 
+
+3. **Eksik Bölümler** 
+- Tamamen eksik olan alt bölümler (bölüm kodu ile) 
+- Kısmen eksik olan alt bölümler (bölüm kodu ile) 
+
+4. **Öneriler** 
+- Her eksik/eksik kalan alt bölüm için öneriler (bölüm kodu ile) 
+- İyileştirme tavsiyeleri 
+- Öncelik sırası (en kritik 5 aksiyon) 
+- Mevcut ama zayıf olan bölümler için geliştirme önerileri (bölüm kodu ile) 
+
+Lütfen detaylı ve yapılandırılmış bir değerlendirme raporu hazırla.`,
+      C: ` İş planını yönerge parçalarına göre detaylı olarak değerlendir ve eksik yönlerini belirle. 
+⚠️ Bu istekte SADECE " C. TEKNİK ANALİZ" (C) ana bölümünü değerlendir:
+ - Kapsam: C.* (C.1.1., C.1.2., C.1.3., C.1.4., C.2.1., C.2.2., C.2.3., C.2.4., C.2.5., C.2.6., C.3., C.4.1., C.4.2., C.4.3., C.4.4.)
+- Diğer ana bölümlere girmeden, sadece bu bölümün kalitesi/eksikleri/iyileştirmeleri üzerine odaklan. 
+
+Lütfen şu başlıklar altında değerlendirme yap: 
+
+1. **Genel Değerlendirme** 
+- C. TEKNİK ANALİZ bölümünün genel yapısı ve kapsamı
+ - Güçlü yönler 
+- Genel eksiklikler 
+
+2. **Bölüm Bazlı Analiz** 
+İlgili alt bölüm kodları için (C.1.1., C.1.2., C.1.3., C.1.4., C.2.1., C.2.2., C.2.3., C.2.4., C.2.5., C.2.6., C.3., C.4.1., C.4.2., C.4.3., C.4.4.):
+ - Bölümün mevcut olup olmadığı 
+- İçeriğin yeterliliği 
+- Yönergeye uygunluğu 
+- Eksik unsurlar
+- Bölümün geliştirilmesine yönelik somut öneriler (madde madde) 
+
+3. **Eksik Bölümler** 
+- Tamamen eksik olan alt bölümler (bölüm kodu ile) 
+- Kısmen eksik olan alt bölümler (bölüm kodu ile) 
+
+4. **Öneriler** 
+- Her eksik/eksik kalan alt bölüm için öneriler (bölüm kodu ile) 
+- İyileştirme tavsiyeleri 
+- Öncelik sırası (en kritik 5 aksiyon) 
+- Mevcut ama zayıf olan bölümler için geliştirme önerileri (bölüm kodu ile) 
+
+Lütfen detaylı ve yapılandırılmış bir değerlendirme raporu hazırla.`,
+      D: `İş planını yönerge parçalarına göre detaylı olarak değerlendir ve eksik yönlerini belirle. 
+⚠️ Bu istekte SADECE " D. ORGANİZASYONEL ANALİZ" (D) ana bölümünü değerlendir:
+ - Kapsam: D.* (D.1.1, D.1.2., D.2.1., D.2.2., D.3.)
+- Diğer ana bölümlere girmeden, sadece bu bölümün kalitesi/eksikleri/iyileştirmeleri üzerine odaklan. 
+
+Lütfen şu başlıklar altında değerlendirme yap: 
+
+1. **Genel Değerlendirme** 
+- D. ORGANİZASYONEL ANALİZ bölümünün genel yapısı ve kapsamı
+ - Güçlü yönler 
+- Genel eksiklikler 
+
+2. **Bölüm Bazlı Analiz** 
+İlgili alt bölüm kodları için (D.1.1, D.1.2., D.2.1., D.2.2., D.3.):
+ - Bölümün mevcut olup olmadığı 
+- İçeriğin yeterliliği 
+- Yönergeye uygunluğu 
+- Eksik unsurlar
+- Bölümün geliştirilmesine yönelik somut öneriler (madde madde) 
+
+3. **Eksik Bölümler** 
+- Tamamen eksik olan alt bölümler (bölüm kodu ile) 
+- Kısmen eksik olan alt bölümler (bölüm kodu ile) 
+
+4. **Öneriler** 
+- Her eksik/eksik kalan alt bölüm için öneriler (bölüm kodu ile) 
+- İyileştirme tavsiyeleri 
+- Öncelik sırası (en kritik 5 aksiyon) 
+- Mevcut ama zayıf olan bölümler için geliştirme önerileri (bölüm kodu ile) 
+
+Lütfen detaylı ve yapılandırılmış bir değerlendirme raporu hazırla.`,
+      E: `İş planını yönerge parçalarına göre detaylı olarak değerlendir ve eksik yönlerini belirle. 
+⚠️ Bu istekte SADECE " E. FİNANSAL ANALİZ " (E) ana bölümünü değerlendir:
+ - Kapsam: E.* (E.1., E.2., E.3., E.4.1., E.4.2., E.5., E.6., E.7., E.8., E.9.)
+- Diğer ana bölümlere girmeden, sadece bu bölümün kalitesi/eksikleri/iyileştirmeleri üzerine odaklan. 
+
+Lütfen şu başlıklar altında değerlendirme yap: 
+
+1. **Genel Değerlendirme** 
+- E. FİNANSAL ANALİZ bölümünün genel yapısı ve kapsamı
+ - Güçlü yönler 
+- Genel eksiklikler 
+
+2. **Bölüm Bazlı Analiz** 
+İlgili alt bölüm kodları için (E.1., E.2., E.3., E.4.1., E.4.2., E.5., E.6., E.7., E.8., E.9.):
+ - Bölümün mevcut olup olmadığı 
+- İçeriğin yeterliliği 
+- Yönergeye uygunluğu 
+- Eksik unsurlar
+- Bölümün geliştirilmesine yönelik somut öneriler (madde madde) 
+
+3. **Eksik Bölümler** 
+- Tamamen eksik olan alt bölümler (bölüm kodu ile) 
+- Kısmen eksik olan alt bölümler (bölüm kodu ile) 
+
+4. **Öneriler** 
+- Her eksik/eksik kalan alt bölüm için öneriler (bölüm kodu ile) 
+- İyileştirme tavsiyeleri 
+- Öncelik sırası (en kritik 5 aksiyon) 
+- Mevcut ama zayıf olan bölümler için geliştirme önerileri (bölüm kodu ile) 
+
+Lütfen detaylı ve yapılandırılmış bir değerlendirme raporu hazırla.`,
+    };
+
     // Debug: Email kontrolü
     console.log('=== EVALUATION DEBUG ===');
     console.log('User email:', userEmail);
@@ -196,42 +354,7 @@ export default function ChatPage() {
     console.log('Section letter:', sectionLetter);
     console.log('=======================');
 
-    const section = mainSections.find((s) => s.letter === sectionLetter);
-    const sectionTitle = section?.title || sectionLetter;
-    const subsectionCodes = section?.subsections?.map((s) => s.code) || [];
-
-    const evaluationPrompt = `İş planını yönerge parçalarına göre detaylı olarak değerlendir ve eksik yönlerini belirle.
-
-⚠️ Bu istekte SADECE "${sectionTitle}" (${sectionLetter}) ana bölümünü değerlendir:
-- Kapsam: ${sectionLetter}.* (örn: ${subsectionCodes.join(', ') || `${sectionLetter}.*`})
-- Diğer ana bölümlere girmeden, sadece bu bölümün kalitesi/eksikleri/iyileştirmeleri üzerine odaklan.
-
-Lütfen şu başlıklar altında değerlendirme yap:
-
-1. **Genel Değerlendirme**
-   - ${sectionTitle} bölümünün genel yapısı ve kapsamı
-   - Güçlü yönler
-   - Genel eksiklikler
-
-2. **Bölüm Bazlı Analiz**
-   İlgili alt bölüm kodları için (örn: ${subsectionCodes.join(', ') || `${sectionLetter}.*`}):
-   - Bölümün mevcut olup olmadığı
-   - İçeriğin yeterliliği
-   - Yönergeye uygunluğu
-   - Eksik unsurlar
-   - Bölümün geliştirilmesine yönelik somut öneriler (madde madde)
-
-3. **Eksik Bölümler**
-   - Tamamen eksik olan alt bölümler (bölüm kodu ile)
-   - Kısmen eksik olan alt bölümler (bölüm kodu ile)
-
-4. **Öneriler**
-   - Her eksik/eksik kalan alt bölüm için öneriler (bölüm kodu ile)
-   - İyileştirme tavsiyeleri
-   - Öncelik sırası (en kritik 5 aksiyon)
-   - Mevcut ama zayıf olan bölümler için geliştirme önerileri (bölüm kodu ile)
-
-Lütfen detaylı ve yapılandırılmış bir değerlendirme raporu hazırla.`;
+    const evaluationPrompt = evaluationPromptBySection[sectionLetter] || evaluationPromptBySection.A;
 
     try {
       await sendMessage({ text: evaluationPrompt });
