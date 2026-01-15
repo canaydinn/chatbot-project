@@ -135,6 +135,8 @@ export default function ChatPage() {
   const [uploadedFile, setUploadedFile] = useState<{ name: string; content: string; collectionName?: string } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [pendingScoreSectionLetter, setPendingScoreSectionLetter] = useState<string | null>(null);
+  const pendingScoreSectionLetterRef = useRef<string | null>(null);
+  const scoreSaveInFlightRef = useRef<boolean>(false);
   const prevIsLoadingRef = useRef<boolean>(false);
 
   const getMessageText = (message: any): string => {
@@ -154,8 +156,10 @@ export default function ChatPage() {
 
   const extractSectionScore = (text: string): number | null => {
     if (!text) return null;
-    // Beklenen format: "Bölüm Puanı: XX/100"
-    const match = text.match(/bölüm\s*puan[ıi]\s*:\s*(\d{1,3})\s*\/\s*100/i);
+    // Beklenen format:
+    // - "Bölüm Puanı: XX/100" (tercih edilen)
+    // - "Genel Puan: XX/100" (system prompt yüzünden gelebilir)
+    const match = text.match(/(?:bölüm\s*puan[ıi]|genel\s*puan)\s*:\s*(\d{1,3})\s*\/\s*100/i);
     if (!match) return null;
     const score = Number.parseInt(match[1], 10);
     if (!Number.isFinite(score) || score < 0 || score > 100) return null;
@@ -168,32 +172,51 @@ export default function ChatPage() {
     prevIsLoadingRef.current = isLoading;
 
     if (!wasLoading || isLoading) return;
-    if (!pendingScoreSectionLetter || !userEmail) return;
+    const sectionLetter = pendingScoreSectionLetterRef.current || pendingScoreSectionLetter;
+    if (!sectionLetter || !userEmail) return;
+    if (scoreSaveInFlightRef.current) return;
 
     const lastAssistantMessage = [...messages].reverse().find((m: any) => m?.role === 'assistant');
     const assistantText = getMessageText(lastAssistantMessage);
     const score = extractSectionScore(assistantText);
 
-    // Tek seferlik: ne olursa olsun bu değerlendirme için beklemeyi kapat
-    setPendingScoreSectionLetter(null);
-
     if (score === null) {
-      console.warn('Score not found in assistant response. Expected: "Bölüm Puanı: XX/100"');
+      console.warn('Score not found in assistant response. Expected: "Bölüm Puanı: XX/100" or "Genel Puan: XX/100"');
       return;
     }
 
     // Sheet'e kaydet
+    scoreSaveInFlightRef.current = true;
     fetch('/api/scores', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         email: userEmail,
-        sectionLetter: pendingScoreSectionLetter,
+        sectionLetter,
         score,
       }),
-    }).catch((err) => {
-      console.error('Failed to save score to sheet:', err);
-    });
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          let payload: any = null;
+          try {
+            payload = await res.json();
+          } catch {
+            payload = await res.text();
+          }
+          console.error('Score save failed:', res.status, payload);
+        } else {
+          console.log('Score saved successfully');
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to save score to sheet:', err);
+      })
+      .finally(() => {
+        scoreSaveInFlightRef.current = false;
+        pendingScoreSectionLetterRef.current = null;
+        setPendingScoreSectionLetter(null);
+      });
   }, [isLoading, messages, pendingScoreSectionLetter, userEmail]);
 
   // Session kontrolü ve hydration
@@ -259,6 +282,7 @@ export default function ChatPage() {
 
     // Bu tıklama için puan kaydını hazırlıyoruz (yanıt bitince Sheet'e yazacağız)
     setPendingScoreSectionLetter(sectionLetter);
+    pendingScoreSectionLetterRef.current = sectionLetter;
 
     const evaluationPromptBySection: Record<string, string> = {
       A: `İş planını yönerge parçalarına göre detaylı olarak değerlendir ve eksik yönlerini belirle. 

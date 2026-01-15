@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
 
+export const runtime = 'nodejs';
+
 // Google Sheets API client'ı oluştur
 function getSheetsClient() {
   const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
@@ -52,6 +54,33 @@ function getSheetsClient() {
   }
 }
 
+async function pickUsersSheetName(sheets: any, spreadsheetId: string): Promise<string> {
+  const meta = await sheets.spreadsheets.get({ spreadsheetId });
+  const sheetList = meta.data.sheets || [];
+
+  for (const s of sheetList) {
+    const title = s.properties?.title;
+    if (!title) continue;
+    try {
+      const headerRes = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: `${title}!A1:D1`,
+      });
+      const headerRow = (headerRes.data.values?.[0] || []).map((v: any) =>
+        String(v || '').trim().toLowerCase()
+      );
+      const looksLikeUsers =
+        headerRow.some((v: string) => v.includes('ad')) && headerRow.some((v: string) => v.includes('e-posta') || v.includes('eposta'));
+      if (looksLikeUsers) return title;
+    } catch {
+      // ignore
+    }
+  }
+
+  const firstTitle = sheetList?.[0]?.properties?.title;
+  return firstTitle || 'Sheet1';
+}
+
 export async function POST(req: Request) {
   try {
     // Environment variable kontrolü
@@ -101,14 +130,11 @@ export async function POST(req: Request) {
       );
     }
 
-    // Önce sheet bilgilerini al
-    let sheetMetadata;
+    let sheetName = 'Sheet1';
     try {
-      sheetMetadata = await sheets.spreadsheets.get({
-        spreadsheetId,
-      });
+      sheetName = await pickUsersSheetName(sheets, spreadsheetId);
     } catch (error: any) {
-      console.error('Error getting sheet metadata:', error);
+      console.error('Error selecting sheet name:', error);
       return NextResponse.json(
         {
           error: 'Google Sheets dosyasına erişilemedi',
@@ -118,19 +144,6 @@ export async function POST(req: Request) {
         { status: 500 }
       );
     }
-
-    // İlk sheet'i kullan (genellikle varsayılan sheet)
-    const firstSheet = sheetMetadata.data.sheets?.[0];
-    if (!firstSheet) {
-      return NextResponse.json(
-        {
-          error: 'Google Sheets dosyasında sheet bulunamadı',
-        },
-        { status: 500 }
-      );
-    }
-
-    const sheetName = firstSheet.properties?.title || 'Sheet1';
     console.log('Using sheet name:', sheetName);
 
     // Önce e-posta kontrolü yap

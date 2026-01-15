@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
 
+export const runtime = 'nodejs';
+
 // Google Sheets API test endpoint
 export async function GET() {
   try {

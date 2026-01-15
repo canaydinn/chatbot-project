@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
 
+export const runtime = 'nodejs';
+
 type SectionLetter = 'A' | 'B' | 'C' | 'D' | 'E' | 'F';
 
 const SECTION_TO_COLUMN: Record<SectionLetter, string> = {
@@ -48,6 +50,33 @@ function isSectionLetter(x: unknown): x is SectionLetter {
   return x === 'A' || x === 'B' || x === 'C' || x === 'D' || x === 'E' || x === 'F';
 }
 
+async function pickUsersSheetName(sheets: any, spreadsheetId: string): Promise<string> {
+  const meta = await sheets.spreadsheets.get({ spreadsheetId });
+  const sheetList = meta.data.sheets || [];
+
+  for (const s of sheetList) {
+    const title = s.properties?.title;
+    if (!title) continue;
+    try {
+      const headerRes = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: `${title}!A1:D1`,
+      });
+      const headerRow = (headerRes.data.values?.[0] || []).map((v: any) =>
+        String(v || '').trim().toLowerCase()
+      );
+      const looksLikeUsers =
+        headerRow.some((v: string) => v.includes('ad')) && headerRow.some((v: string) => v.includes('e-posta') || v.includes('eposta'));
+      if (looksLikeUsers) return title;
+    } catch {
+      // ignore
+    }
+  }
+
+  const firstTitle = sheetList?.[0]?.properties?.title;
+  return firstTitle || 'Sheet1';
+}
+
 export async function POST(req: Request) {
   try {
     if (!process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || !process.env.GOOGLE_PRIVATE_KEY) {
@@ -78,9 +107,7 @@ export async function POST(req: Request) {
 
     const { sheets, spreadsheetId } = getSheetsClient();
 
-    const sheetMetadata = await sheets.spreadsheets.get({ spreadsheetId });
-    const firstSheet = sheetMetadata.data.sheets?.[0];
-    const sheetName = firstSheet?.properties?.title || 'Sheet1';
+    const sheetName = await pickUsersSheetName(sheets, spreadsheetId);
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
@@ -92,16 +119,44 @@ export async function POST(req: Request) {
       rows.length > 0 && rows[0]?.[0]?.toString().trim().toLowerCase().includes('ad');
     const dataRows = hasHeader ? rows.slice(1) : rows;
 
-    const rowIndex = dataRows.findIndex((row) => {
+    let rowIndex = dataRows.findIndex((row) => {
       const rowEmail = row?.[2]?.toString().trim().toLowerCase();
       return rowEmail === normalizedEmail;
     });
 
     if (rowIndex === -1) {
-      return NextResponse.json(
-        { error: 'Kullanıcı sheet içinde bulunamadı' },
-        { status: 404 }
-      );
+      // Kullanıcı yoksa satır oluştur (score yazımı için)
+      const timestamp = new Date().toISOString();
+      await sheets.spreadsheets.values.append({
+        spreadsheetId,
+        range: `${sheetName}!A:D`,
+        valueInputOption: 'USER_ENTERED',
+        insertDataOption: 'INSERT_ROWS',
+        requestBody: {
+          values: [['', '', normalizedEmail, timestamp]],
+        },
+      });
+
+      // Tekrar oku ve rowIndex bul
+      const responseAfterAppend = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: `${sheetName}!A:C`,
+      });
+      const rowsAfterAppend = responseAfterAppend.data.values || [];
+      const hasHeaderAfterAppend =
+        rowsAfterAppend.length > 0 && rowsAfterAppend[0]?.[0]?.toString().trim().toLowerCase().includes('ad');
+      const dataRowsAfterAppend = hasHeaderAfterAppend ? rowsAfterAppend.slice(1) : rowsAfterAppend;
+      rowIndex = dataRowsAfterAppend.findIndex((row) => {
+        const rowEmail = row?.[2]?.toString().trim().toLowerCase();
+        return rowEmail === normalizedEmail;
+      });
+
+      if (rowIndex === -1) {
+        return NextResponse.json(
+          { error: 'Kullanıcı oluşturuldu ama bulunamadı' },
+          { status: 500 }
+        );
+      }
     }
 
     const sheetRowNumber = (hasHeader ? 2 : 1) + rowIndex; // 1-indexed

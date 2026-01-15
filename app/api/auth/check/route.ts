@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
 
+export const runtime = 'nodejs';
+
 // Google Sheets API client'ı oluştur
 function getSheetsClient() {
   const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
@@ -50,6 +52,35 @@ function getSheetsClient() {
     console.error('JWT auth creation error:', error.message);
     throw new Error(`Private key parsing hatası: ${error.message}. Private key formatını kontrol edin.`);
   }
+}
+
+async function pickUsersSheetName(sheets: any, spreadsheetId: string): Promise<string> {
+  const meta = await sheets.spreadsheets.get({ spreadsheetId });
+  const sheetList = meta.data.sheets || [];
+
+  // Önce "Ad / E-posta" başlığı olan sheet'i bulmaya çalış
+  for (const s of sheetList) {
+    const title = s.properties?.title;
+    if (!title) continue;
+    try {
+      const headerRes = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: `${title}!A1:D1`,
+      });
+      const headerRow = (headerRes.data.values?.[0] || []).map((v: any) =>
+        String(v || '').trim().toLowerCase()
+      );
+      const looksLikeUsers =
+        headerRow.some((v: string) => v.includes('ad')) && headerRow.some((v: string) => v.includes('e-posta') || v.includes('eposta'));
+      if (looksLikeUsers) return title;
+    } catch {
+      // Sheet'e erişilemiyorsa pas geç
+    }
+  }
+
+  // Bulamazsak ilk sheet
+  const firstTitle = sheetList?.[0]?.properties?.title;
+  return firstTitle || 'Sheet1';
 }
 
 export async function POST(req: Request) {
@@ -109,18 +140,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // İlk sheet'i kullan (genellikle varsayılan sheet)
-    const firstSheet = sheetMetadata.data.sheets?.[0];
-    if (!firstSheet) {
-      return NextResponse.json(
-        {
-          error: 'Google Sheets dosyasında sheet bulunamadı',
-        },
-        { status: 500 }
-      );
-    }
-
-    const sheetName = firstSheet.properties?.title || 'Sheet1';
+    const sheetName = await pickUsersSheetName(sheets, spreadsheetId);
     console.log('Using sheet name:', sheetName);
 
     // Sheet'teki tüm verileri oku
