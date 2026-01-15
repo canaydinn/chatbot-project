@@ -4,13 +4,13 @@ import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Send, Loader2, ChevronDown, ChevronRight, Upload, X, FileText } from 'lucide-react';
+import { Send, Loader2, Upload, X, FileText } from 'lucide-react';
 
 // Ana bölümler verisi
 const mainSections = [
   {
     letter: 'A',
-    title: 'Genel Bilgiler',
+    title: 'GENEL BİLGİLER',
     subsections: [
       { code: 'A.1.1', title: 'Girişimcinin Tanıtımı' },
       { code: 'A.1.2', title: 'İş Fikri' },
@@ -20,7 +20,7 @@ const mainSections = [
   },
   {
     letter: 'B',
-    title: 'Pazar ve Rekabet Analizi',
+    title: 'PAZAR ANALİZİ',
     subsections: [
       { code: 'B.1.1', title: 'Hedef Pazar' },
       { code: 'B.1.2', title: 'Pazar Büyüklüğü' },
@@ -30,7 +30,7 @@ const mainSections = [
   },
   {
     letter: 'C',
-    title: 'İş Modeli ve Operasyonlar',
+    title: 'TEKNİK ANALİZ',
     subsections: [
       { code: 'C.1.1', title: 'İş Modeli' },
       { code: 'C.1.2', title: 'Gelir Modelleri' },
@@ -40,7 +40,7 @@ const mainSections = [
   },
   {
     letter: 'D',
-    title: 'Pazarlama ve Satış',
+    title: 'ORGANİZASYONEL ANALİZ',
     subsections: [
       { code: 'D.1.1', title: 'Pazarlama Stratejisi' },
       { code: 'D.1.2', title: 'Satış Kanalı' },
@@ -49,7 +49,7 @@ const mainSections = [
   },
   {
     letter: 'E',
-    title: 'Finansal Planlama',
+    title: 'FİNANSAL ANALİZ',
     subsections: [
       { code: 'E.1.1', title: 'Gelir Projeksiyonları' },
       { code: 'E.1.2', title: 'Maliyet Yapısı' },
@@ -57,48 +57,6 @@ const mainSections = [
     ],
   },
 ];
-
-interface SectionAccordionProps {
-  section: typeof mainSections[0];
-  isOpen: boolean;
-  onToggle: () => void;
-  onSectionClick: (code: string) => void;
-}
-
-function SectionAccordion({ section, isOpen, onToggle, onSectionClick }: SectionAccordionProps) {
-  return (
-    <div className="border-b border-gray-200 dark:border-gray-700">
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-      >
-        <div className="flex items-center gap-2">
-          <span className="font-semibold text-blue-600 dark:text-blue-400">{section.letter}</span>
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{section.title}</span>
-        </div>
-        {isOpen ? (
-          <ChevronDown className="w-4 h-4 text-gray-500" />
-        ) : (
-          <ChevronRight className="w-4 h-4 text-gray-500" />
-        )}
-      </button>
-      {isOpen && (
-        <div className="pl-4 pb-2">
-          {section.subsections.map((subsection) => (
-            <button
-              key={subsection.code}
-              onClick={() => onSectionClick(subsection.code)}
-              className="w-full text-left p-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded transition-colors"
-            >
-              <span className="text-xs text-gray-500 dark:text-gray-500 mr-2">{subsection.code}</span>
-              {subsection.title}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function ChatPage() {
   const router = useRouter();
@@ -166,7 +124,6 @@ export default function ChatPage() {
   const isLoading = status === 'submitted' || status === 'streaming';
 
   const [input, setInput] = useState('');
-  const [openSections, setOpenSections] = useState<Set<string>>(new Set(['A']));
   const [uploadedFile, setUploadedFile] = useState<{ name: string; content: string; collectionName?: string } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -222,27 +179,6 @@ export default function ChatPage() {
   if (!mounted || !isAuthorized) {
     return null;
   }
-
-  const toggleSection = (letter: string) => {
-    const newOpenSections = new Set(openSections);
-    if (newOpenSections.has(letter)) {
-      newOpenSections.delete(letter);
-    } else {
-      newOpenSections.add(letter);
-    }
-    setOpenSections(newOpenSections);
-  };
-
-  const handleSectionClick = async (code: string) => {
-    const question = `${code} bölümü hakkında bilgi verir misin?`;
-    if (sendMessage) {
-      try {
-        await sendMessage({ text: question });
-      } catch (error) {
-        console.error('Error sending message:', error);
-      }
-    }
-  };
 
   const handleEvaluateBusinessPlanSection = async (sectionLetter: string) => {
     if (!uploadedFile) {
@@ -433,7 +369,7 @@ Lütfen detaylı ve yapılandırılmış bir değerlendirme raporu hazırla.`;
                   Merhaba! 👋
                 </h2>
                 <p className="text-gray-600 dark:text-gray-400 mb-4">
-                  İş planınız hakkında sorular sorabilir veya sağdaki bölümlerden birini seçerek hızlı erişim sağlayabilirsiniz.
+                  İş planınız hakkında sorular sorabilir veya aşağıdaki bölüm değerlendirme butonlarını kullanabilirsiniz.
                 </p>
                 <div className="text-sm text-gray-500 dark:text-gray-500">
                   <p>Örnek sorular:</p>
@@ -575,28 +511,6 @@ Lütfen detaylı ve yapılandırılmış bir değerlendirme raporu hazırla.`;
           </form>
         </div>
       </div>
-
-      {/* Sidebar - Ana Bölümler */}
-      <aside className="w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 overflow-y-auto hidden lg:block">
-        <div className="p-4">
-          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">
-            Yönerge Bölümleri
-          </h2>
-          <div className="space-y-0">
-            {mainSections.map((section) => (
-              <SectionAccordion
-                key={section.letter}
-                section={section}
-                isOpen={openSections.has(section.letter)}
-                onToggle={() => toggleSection(section.letter)}
-                onSectionClick={handleSectionClick}
-              />
-            ))}
-          </div>
-        </div>
-      </aside>
-
-      {/* Mobile Sidebar Toggle - Gelecekte eklenebilir */}
     </div>
   );
 }
