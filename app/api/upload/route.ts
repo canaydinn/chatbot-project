@@ -93,17 +93,24 @@ async function extractTextFromUploadedFile(file: File): Promise<string> {
   }
 
   if (ext === '.pdf') {
-    type PdfParseResult = { text?: string };
-    type PdfParseFn = (data: Buffer) => Promise<PdfParseResult>;
-
-    const mod = (await import('pdf-parse')) as unknown;
-    const pdfParse: PdfParseFn =
-      typeof mod === 'function'
-        ? (mod as PdfParseFn)
-        : ((mod as { default?: unknown }).default as PdfParseFn);
-
-    const result = await pdfParse(buffer);
-    return result.text || '';
+    const path = await import('path');
+    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    const workerPath = path.join(process.cwd(), 'node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs');
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `file://${workerPath.replace(/\\/g, '/')}`;
+    const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer) });
+    const pdfDoc = await loadingTask.promise;
+    const pageTexts: string[] = [];
+    for (let i = 1; i <= pdfDoc.numPages; i++) {
+      const page = await pdfDoc.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items
+        .filter((item): item is { str: string } => 'str' in item)
+        .map((item) => item.str)
+        .join(' ');
+      pageTexts.push(pageText);
+    }
+    await pdfDoc.destroy();
+    return pageTexts.join('\n');
   }
 
   throw new Error(`Unsupported file format: ${ext || '(no extension)'}. Supported formats: .txt, .pdf, .docx`);
@@ -164,7 +171,10 @@ export async function POST(req: NextRequest) {
       await qdrantClient.getCollection(collectionName);
       console.log(`Collection ${collectionName} already exists, will update`);
     } catch (error: unknown) {
-      if (getHttpStatus(error) === 404) {
+      const status = getHttpStatus(error);
+      const errMsg = getErrorMessage(error).toLowerCase();
+      const isNotFound = status === 404 || errMsg.includes('not found') || errMsg.includes('doesn') || errMsg.includes('404');
+      if (isNotFound) {
         // Collection yok, oluştur
         await qdrantClient.createCollection(collectionName, {
           vectors: {
@@ -219,11 +229,11 @@ export async function POST(req: NextRequest) {
       fileName: file.name,
     });
   } catch (error: unknown) {
-    console.error('Error uploading file:', error);
+    const detail = getErrorMessage(error);
+    console.error('Error uploading file:', detail);
     return NextResponse.json(
       {
-        error: 'Failed to upload file',
-        details: process.env.NODE_ENV === 'development' ? getErrorMessage(error) : undefined,
+        error: `Failed to upload file: ${detail}`,
       },
       { status: 500 }
     );
