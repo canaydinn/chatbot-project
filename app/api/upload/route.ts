@@ -77,6 +77,93 @@ function getHttpStatus(err: unknown): number | undefined {
   return typeof status === 'number' ? status : undefined;
 }
 
+function isNotFoundError(err: unknown): boolean {
+  const status = getHttpStatus(err);
+  const message = getErrorMessage(err).toLowerCase();
+  return status === 404 || message.includes('not found') || message.includes('doesn') || message.includes('404');
+}
+
+async function sleep(ms: number) {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function ensureCollectionReady(qdrantClient: QdrantClient, collectionName: string) {
+  try {
+    await qdrantClient.getCollection(collectionName);
+    console.log(`Collection ${collectionName} already exists, will update`);
+    return;
+  } catch (error: unknown) {
+    const isNotFound = isNotFoundError(error);
+    console.log(`[Qdrant] getCollection error | status=${getHttpStatus(error)} | msg=${getErrorMessage(error)} | isNotFound=${isNotFound}`);
+    if (!isNotFound) {
+      throw error;
+    }
+  }
+
+  try {
+    await qdrantClient.createCollection(collectionName, {
+      vectors: {
+        size: 1536,
+        distance: 'Cosine',
+      },
+    });
+    console.log(`Created collection: ${collectionName}`);
+  } catch (createErr: unknown) {
+    // İki istek aynı anda gelirse collection bu noktada zaten oluşturulmuş olabilir.
+    if (!isNotFoundError(createErr) && !getErrorMessage(createErr).toLowerCase().includes('already exists')) {
+      console.error(`[Qdrant] createCollection failed: ${getErrorMessage(createErr)}`);
+      throw createErr;
+    }
+  }
+
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    try {
+      await qdrantClient.getCollection(collectionName);
+      console.log(`[Qdrant] collection ready after attempt ${attempt}`);
+      return;
+    } catch (readyErr: unknown) {
+      if (attempt === 5) {
+        throw new Error(`Qdrant collection became unavailable after creation: ${getErrorMessage(readyErr)}`);
+      }
+      await sleep(attempt * 400);
+    }
+  }
+}
+
+async function upsertWithRetry(
+  qdrantClient: QdrantClient,
+  collectionName: string,
+  points: Array<{
+    id: number;
+    vector: number[];
+    payload: {
+      text: string;
+      fileName: string;
+      chunkIndex: number;
+      totalChunks: number;
+      uploadedAt: string;
+    };
+  }>
+) {
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    try {
+      await qdrantClient.upsert(collectionName, {
+        wait: true,
+        points,
+      });
+      return;
+    } catch (error: unknown) {
+      const notFound = isNotFoundError(error);
+      console.error(`[Qdrant] upsert failed | attempt=${attempt} | notFound=${notFound} | msg=${getErrorMessage(error)}`);
+      if (!notFound || attempt === 4) {
+        throw error;
+      }
+      await sleep(attempt * 500);
+      await ensureCollectionReady(qdrantClient, collectionName);
+    }
+  }
+}
+
 async function extractTextFromUploadedFile(file: File): Promise<string> {
   const name = (file.name || '').toLowerCase();
   const ext = name.includes('.') ? name.slice(name.lastIndexOf('.')) : '';
@@ -167,32 +254,7 @@ export async function POST(req: NextRequest) {
     const qdrantClient = getQdrantClient();
     const openaiClient = getOpenAIClient();
 
-    // Collection'ı oluştur veya kontrol et
-    try {
-      await qdrantClient.getCollection(collectionName);
-      console.log(`Collection ${collectionName} already exists, will update`);
-    } catch (error: unknown) {
-      const status = getHttpStatus(error);
-      const errMsg = getErrorMessage(error).toLowerCase();
-      const isNotFound = status === 404 || errMsg.includes('not found') || errMsg.includes('doesn') || errMsg.includes('404');
-      console.log(`[Qdrant] getCollection error | status=${status} | msg=${getErrorMessage(error)} | isNotFound=${isNotFound}`);
-      if (isNotFound) {
-        try {
-          await qdrantClient.createCollection(collectionName, {
-            vectors: {
-              size: 1536,
-              distance: 'Cosine',
-            },
-          });
-          console.log(`Created collection: ${collectionName}`);
-        } catch (createErr: unknown) {
-          console.error(`[Qdrant] createCollection failed: ${getErrorMessage(createErr)}`);
-          throw createErr;
-        }
-      } else {
-        throw error;
-      }
-    }
+    await ensureCollectionReady(qdrantClient, collectionName);
 
     // Metni chunk'lara ayır
     const chunks = chunkText(text, 1000, 200);
@@ -202,7 +264,12 @@ export async function POST(req: NextRequest) {
     const points = [];
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i];
-      const embedding = await createEmbedding(chunk, openaiClient);
+      let embedding: number[];
+      try {
+        embedding = await createEmbedding(chunk, openaiClient);
+      } catch (embeddingErr: unknown) {
+        throw new Error(`OpenAI embedding failed: ${getErrorMessage(embeddingErr)}`);
+      }
       
       points.push({
         id: i,
@@ -218,10 +285,7 @@ export async function POST(req: NextRequest) {
 
       // Batch olarak yükle (her 10 chunk'ta bir)
       if (points.length >= 10 || i === chunks.length - 1) {
-        await qdrantClient.upsert(collectionName, {
-          wait: true,
-          points: points,
-        });
+        await upsertWithRetry(qdrantClient, collectionName, points);
         console.log(`Uploaded ${points.length} chunks to Qdrant`);
         points.length = 0; // Array'i temizle
       }
