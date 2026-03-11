@@ -93,24 +93,25 @@ async function extractTextFromUploadedFile(file: File): Promise<string> {
   }
 
   if (ext === '.pdf') {
-    const path = await import('path');
-    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
-    const workerPath = path.join(process.cwd(), 'node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs');
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `file://${workerPath.replace(/\\/g, '/')}`;
-    const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer) });
-    const pdfDoc = await loadingTask.promise;
-    const pageTexts: string[] = [];
-    for (let i = 1; i <= pdfDoc.numPages; i++) {
-      const page = await pdfDoc.getPage(i);
-      const textContent = await page.getTextContent();
-      const pageText = textContent.items
-        .filter((item) => 'str' in item)
-        .map((item) => (item as { str: string }).str)
-        .join(' ');
-      pageTexts.push(pageText);
+    const nodePath = await import('path');
+    const { pathToFileURL } = await import('url');
+    const { PDFParse } = await import('pdf-parse');
+    // require.resolve ile modül sisteminden kesin yolu al; fallback: process.cwd()
+    let pdfParseDir: string;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      pdfParseDir = nodePath.dirname(require.resolve('pdf-parse'));
+    } catch {
+      pdfParseDir = nodePath.join(process.cwd(), 'node_modules/pdf-parse/dist/pdf-parse/cjs');
     }
-    await pdfDoc.destroy();
-    return pageTexts.join('\n');
+    const workerAbsPath = nodePath.join(pdfParseDir, 'pdf.worker.mjs');
+    const workerUrl = pathToFileURL(workerAbsPath).href;
+    console.log('[PDF] workerUrl:', workerUrl);
+    PDFParse.setWorker(workerUrl);
+    const parser = new PDFParse({ data: buffer });
+    const result = await parser.getText();
+    await parser.destroy();
+    return result.text || '';
   }
 
   throw new Error(`Unsupported file format: ${ext || '(no extension)'}. Supported formats: .txt, .pdf, .docx`);
@@ -174,15 +175,20 @@ export async function POST(req: NextRequest) {
       const status = getHttpStatus(error);
       const errMsg = getErrorMessage(error).toLowerCase();
       const isNotFound = status === 404 || errMsg.includes('not found') || errMsg.includes('doesn') || errMsg.includes('404');
+      console.log(`[Qdrant] getCollection error | status=${status} | msg=${getErrorMessage(error)} | isNotFound=${isNotFound}`);
       if (isNotFound) {
-        // Collection yok, oluştur
-        await qdrantClient.createCollection(collectionName, {
-          vectors: {
-            size: 1536, // text-embedding-3-small dimension
-            distance: 'Cosine',
-          },
-        });
-        console.log(`Created collection: ${collectionName}`);
+        try {
+          await qdrantClient.createCollection(collectionName, {
+            vectors: {
+              size: 1536,
+              distance: 'Cosine',
+            },
+          });
+          console.log(`Created collection: ${collectionName}`);
+        } catch (createErr: unknown) {
+          console.error(`[Qdrant] createCollection failed: ${getErrorMessage(createErr)}`);
+          throw createErr;
+        }
       } else {
         throw error;
       }
