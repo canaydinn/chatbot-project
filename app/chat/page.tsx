@@ -141,15 +141,29 @@ export default function ChatPage() {
 
   const getMessageText = (message: any): string => {
     if (!message) return '';
+    const chunks: string[] = [];
+
     const parts = message.parts;
     if (Array.isArray(parts)) {
-      return (
-        parts
-          .filter((part: any) => part?.type === 'text')
-          .map((part: any) => part?.text || '')
-          .join('') || ''
-      );
+      for (const part of parts) {
+        // SDK sürümüne göre type/text alanı değişebildiği için daha toleranslı okuyoruz.
+        if (!part) continue;
+        if (typeof part?.text === 'string') chunks.push(part.text);
+        if (typeof part?.content === 'string') chunks.push(part.content);
+        if (typeof part?.value === 'string') chunks.push(part.value);
+      }
     }
+    if (typeof message.text === 'string') chunks.push(message.text);
+    if (typeof message.content === 'string') chunks.push(message.content);
+    if (Array.isArray(message.content)) {
+      for (const c of message.content) {
+        if (typeof c === 'string') chunks.push(c);
+        else if (c && typeof c?.text === 'string') chunks.push(c.text);
+      }
+    }
+
+    const joined = chunks.join('').trim();
+    if (joined) return joined;
     if (typeof message.text === 'string') return message.text;
     return '';
   };
@@ -174,14 +188,16 @@ export default function ChatPage() {
 
     // 1) Tercih edilen: "Bölüm Puanı: XX/100" veya "Genel Puan: XX/100"
     //    Ayrıca ":" yerine "-" gelebilir ve sayı **bold** olabilir.
-    const labeledOutOf100 = /(?:^|\n)\s*\**\s*(?:bölüm\s*)?(?:puan[ıi]|skor)\s*[:\-]\s*\**\s*(\d{1,3})\s*\**\s*\/\s*100\b/gi;
-    const labeledGeneralOutOf100 = /(?:^|\n)\s*\**\s*(?:genel\s*)?(?:puan|skor)\s*[:\-]\s*\**\s*(\d{1,3})\s*\**\s*\/\s*100\b/gi;
+    const labeledOutOf100 = /(?:^|\n)\s*\**\s*(?:bölüm\s*)?(?:puan[ıi]|skor|score)\s*[:\-]\s*\**\s*(\d{1,3})\s*\**\s*\/\s*100\b/gi;
+    const labeledGeneralOutOf100 = /(?:^|\n)\s*\**\s*(?:genel\s*)?(?:puan|skor|score)\s*[:\-]\s*\**\s*(\d{1,3})\s*\**\s*\/\s*100\b/gi;
 
     // 2) Sadece "XX/100" (etiketsiz, genelde en sonda gelir)
     const bareOutOf100 = /(?:^|\n)\s*\**\s*(\d{1,3})\s*\**\s*\/\s*100\b/gi;
 
     // 3) "100 üzerinden XX"
     const outOf100Words = /100\s*üzerinden\s*(\d{1,3})\b/gi;
+    // 4) "Puan: XX" (bazı yanıtlarda /100 yazılmadan gelebiliyor)
+    const labeledPlain = /(?:^|\n)\s*\**\s*(?:bölüm\s*)?(?:genel\s*)?(?:puan[ıi]?|skor|score)\s*[:\-]\s*\**\s*(\d{1,3})\b/gi;
 
     const pickLastMatch = (re: RegExp) => {
       let m: RegExpExecArray | null = null;
@@ -196,6 +212,7 @@ export default function ChatPage() {
       pickLastMatch(labeledGeneralOutOf100),
       pickLastMatch(outOf100Words),
       pickLastMatch(bareOutOf100),
+      pickLastMatch(labeledPlain),
     ];
 
     for (const c of candidates) {
@@ -217,7 +234,10 @@ export default function ChatPage() {
     if (!sectionLetter || !userEmail) return;
     if (scoreSaveInFlightRef.current) return;
 
-    const lastAssistantMessage = [...messages].reverse().find((m: any) => m?.role === 'assistant');
+    const reversedAssistantMessages = [...messages].reverse().filter((m: any) => m?.role === 'assistant');
+    const lastAssistantMessage =
+      reversedAssistantMessages.find((m: any) => getMessageText(m).trim().length > 0) ||
+      reversedAssistantMessages[0];
     const assistantText = getMessageText(lastAssistantMessage);
     const score = extractSectionScore(assistantText);
 
