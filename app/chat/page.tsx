@@ -156,14 +156,55 @@ export default function ChatPage() {
 
   const extractSectionScore = (text: string): number | null => {
     if (!text) return null;
-    // Beklenen format:
-    // - "Bölüm Puanı: XX/100" (tercih edilen)
-    // - "Genel Puan: XX/100" (system prompt yüzünden gelebilir)
-    const match = text.match(/(?:bölüm\s*puan[ıi]|genel\s*puan)\s*:\s*(\d{1,3})\s*\/\s*100/i);
-    if (!match) return null;
-    const score = Number.parseInt(match[1], 10);
-    if (!Number.isFinite(score) || score < 0 || score > 100) return null;
-    return score;
+
+    // Model bazen markdown, farklı ayraçlar veya unicode slash kullanabiliyor.
+    // Bu yüzden önce normalize edip, sonra birkaç yaygın formata toleranslı parse ediyoruz.
+    const normalized = text
+      .replace(/\u00a0/g, ' ') // NBSP
+      .replace(/[／⁄]/g, '/') // unicode slash variants
+      .replace(/[：]/g, ':') // full-width colon
+      .replace(/[–—]/g, '-') // en/em dash
+      .trim();
+
+    const clampScore = (raw: string) => {
+      const n = Number.parseInt(String(raw).trim(), 10);
+      if (!Number.isFinite(n) || n < 0 || n > 100) return null;
+      return n;
+    };
+
+    // 1) Tercih edilen: "Bölüm Puanı: XX/100" veya "Genel Puan: XX/100"
+    //    Ayrıca ":" yerine "-" gelebilir ve sayı **bold** olabilir.
+    const labeledOutOf100 = /(?:^|\n)\s*\**\s*(?:bölüm\s*)?(?:puan[ıi]|skor)\s*[:\-]\s*\**\s*(\d{1,3})\s*\**\s*\/\s*100\b/gi;
+    const labeledGeneralOutOf100 = /(?:^|\n)\s*\**\s*(?:genel\s*)?(?:puan|skor)\s*[:\-]\s*\**\s*(\d{1,3})\s*\**\s*\/\s*100\b/gi;
+
+    // 2) Sadece "XX/100" (etiketsiz, genelde en sonda gelir)
+    const bareOutOf100 = /(?:^|\n)\s*\**\s*(\d{1,3})\s*\**\s*\/\s*100\b/gi;
+
+    // 3) "100 üzerinden XX"
+    const outOf100Words = /100\s*üzerinden\s*(\d{1,3})\b/gi;
+
+    const pickLastMatch = (re: RegExp) => {
+      let m: RegExpExecArray | null = null;
+      let last: RegExpExecArray | null = null;
+      // eslint-disable-next-line no-cond-assign
+      while ((m = re.exec(normalized))) last = m;
+      return last?.[1] ?? null;
+    };
+
+    const candidates = [
+      pickLastMatch(labeledOutOf100),
+      pickLastMatch(labeledGeneralOutOf100),
+      pickLastMatch(outOf100Words),
+      pickLastMatch(bareOutOf100),
+    ];
+
+    for (const c of candidates) {
+      if (!c) continue;
+      const s = clampScore(c);
+      if (s !== null) return s;
+    }
+
+    return null;
   };
 
   // Değerlendirme tamamlanınca puanı yakalayıp Sheet'e kaydet
@@ -181,7 +222,10 @@ export default function ChatPage() {
     const score = extractSectionScore(assistantText);
 
     if (score === null) {
-      console.warn('Score not found in assistant response. Expected: "Bölüm Puanı: XX/100" or "Genel Puan: XX/100"');
+      console.warn(
+        'Score not found in assistant response. Expected: "Bölüm Puanı: XX/100" or "Genel Puan: XX/100". Last 400 chars:',
+        assistantText.slice(-400)
+      );
       return;
     }
 

@@ -107,7 +107,10 @@ export async function POST(req: Request) {
 
     const { sheets, spreadsheetId } = getSheetsClient();
 
-    const sheetName = await pickUsersSheetName(sheets, spreadsheetId);
+    // Eğer belirli bir sekmeye yazmak istiyorsanız env ile sabitleyin.
+    // Not: Bu "spreadsheet" (dosya) değil, tab/worksheet adıdır.
+    const forcedSheetName = process.env.GOOGLE_SHEET_NAME;
+    const sheetName = forcedSheetName?.trim() ? forcedSheetName.trim() : await pickUsersSheetName(sheets, spreadsheetId);
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
