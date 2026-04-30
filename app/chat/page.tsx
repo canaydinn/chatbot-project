@@ -66,6 +66,15 @@ const mainSections = [
   },
 ];
 
+const sectionDescriptions: Record<string, string> = {
+  A: 'Genel bilgiler bölümünde girişimci profili, iş fikri, şirket yapısı, misyon-vizyon ve hedeflerin yönergeye uygunluğu değerlendirilir.',
+  B: 'Pazar analizi bölümünde hedef pazar, rekabet, müşteri segmentleri, pazarlama stratejileri ve satış projeksiyonları incelenir.',
+  C: 'Teknik analiz bölümünde ürün/hizmetin teknik yeterliliği, operasyon süreçleri, Ar-Ge planı ve teknik riskler değerlendirilir.',
+  D: 'Organizasyonel analiz bölümünde ekip yapısı, rol dağılımı, insan kaynakları planı ve iş gücü maliyetleri ele alınır.',
+  E: 'Finansal analiz bölümünde gelir-gider yapısı, birim ekonomi, karlılık, finansman ihtiyacı ve finansal riskler ölçülür.',
+  F: 'Sonuç bölümünde genel yatırımcı özeti, iş planının bütünsel kalitesi ve SWOT perspektifiyle nihai değerlendirme yapılır.',
+};
+
 export default function ChatPage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
@@ -136,6 +145,13 @@ export default function ChatPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [pendingScoreSectionLetter, setPendingScoreSectionLetter] = useState<string | null>(null);
   const pendingScoreSectionLetterRef = useRef<string | null>(null);
+  const [latestSectionInfo, setLatestSectionInfo] = useState<{
+    letter: string;
+    title: string;
+    description: string;
+    score: number | null;
+  } | null>(null);
+  const [sectionScoreHistory, setSectionScoreHistory] = useState<Record<string, number[]>>({});
   const scoreSaveInFlightRef = useRef<boolean>(false);
   const prevIsLoadingRef = useRef<boolean>(false);
 
@@ -265,6 +281,24 @@ export default function ChatPage() {
       return;
     }
 
+    const sectionMeta = mainSections.find((s) => s.letter === sectionLetter);
+    const sectionTitle = sectionMeta?.title || sectionLetter;
+    const sectionDescription = sectionDescriptions[sectionLetter] || '';
+    setLatestSectionInfo({
+      letter: sectionLetter,
+      title: sectionTitle,
+      description: sectionDescription,
+      score,
+    });
+    setSectionScoreHistory((prev: Record<string, number[]>) => {
+      const existing = prev[sectionLetter] || [];
+      return {
+        ...prev,
+        [sectionLetter]: [...existing, score],
+      };
+    });
+    alert(`${sectionTitle} puanı: ${score}/100`);
+
     // Sheet'e kaydet
     scoreSaveInFlightRef.current = true;
     fetch('/api/scores', {
@@ -363,6 +397,15 @@ export default function ChatPage() {
     // Bu tıklama için puan kaydını hazırlıyoruz (yanıt bitince Sheet'e yazacağız)
     setPendingScoreSectionLetter(sectionLetter);
     pendingScoreSectionLetterRef.current = sectionLetter;
+    const sectionMeta = mainSections.find((s) => s.letter === sectionLetter);
+    if (sectionMeta) {
+      setLatestSectionInfo({
+        letter: sectionMeta.letter,
+        title: sectionMeta.title,
+        description: sectionDescriptions[sectionMeta.letter] || '',
+        score: null,
+      });
+    }
 
     const evaluationPromptBySection: Record<string, string> = {
       A: `İş planını yönerge parçalarına göre detaylı olarak değerlendir ve eksik yönlerini belirle. 
@@ -710,6 +753,54 @@ Lütfen detaylı ve yapılandırılmış bir değerlendirme raporu hazırla.`,
 
         {/* Mesajlar Alanı */}
         <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
+          {latestSectionInfo && (
+            <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-4">
+              <div className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">
+                {latestSectionInfo.letter}. {latestSectionInfo.title}
+              </div>
+              <p className="text-sm text-indigo-700 dark:text-indigo-200 mt-1 whitespace-pre-wrap">
+                {latestSectionInfo.description}
+              </p>
+              <div className="mt-2 text-sm font-medium text-indigo-800 dark:text-indigo-200">
+                {latestSectionInfo.score !== null
+                  ? `Alınan Puan: ${latestSectionInfo.score}/100`
+                  : 'Puan hesaplanıyor...'}
+              </div>
+            </div>
+          )}
+
+          {Object.keys(sectionScoreHistory).length > 0 && (
+            <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4">
+              <div className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                Bölüm Puan Geçmişi
+              </div>
+              <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {mainSections
+                  .filter((section) => (sectionScoreHistory[section.letter] || []).length > 0)
+                  .map((section) => {
+                    const scores = sectionScoreHistory[section.letter];
+                    const latestScore = scores[scores.length - 1];
+                    return (
+                      <div
+                        key={`history-${section.letter}`}
+                        className="rounded-md border border-emerald-200 dark:border-emerald-700 bg-white/60 dark:bg-emerald-950/30 px-3 py-2"
+                      >
+                        <div className="text-xs font-semibold text-emerald-800 dark:text-emerald-200">
+                          {section.letter}. {section.title}
+                        </div>
+                        <div className="text-sm text-emerald-800 dark:text-emerald-100 mt-1">
+                          Son Puan: {latestScore}/100
+                        </div>
+                        <div className="text-xs text-emerald-700 dark:text-emerald-300 mt-1">
+                          Geçmiş: {scores.map((s: number) => `${s}/100`).join(' • ')}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          )}
+
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full text-center">
               <div className="max-w-md">
