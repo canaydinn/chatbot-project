@@ -425,209 +425,88 @@ export default function ChatPage() {
       });
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // UZUN DETAYLI PROMPTLAR — İleride geri dönmek istersen aşağıdaki bloğun
+    // başındaki /* ve sonundaki */ karakterlerini kaldır, kısa prompt bloğunu
+    // yorum satırına al. Her bölüm için 4 başlık + madde madde analiz yapılır.
+    // ─────────────────────────────────────────────────────────────────────────
+    /*
     const evaluationPromptBySection: Record<string, string> = {
-      A: `İş planını yönerge parçalarına göre detaylı olarak değerlendir ve eksik yönlerini belirle. 
-⚠️ Bu istekte SADECE " BÖLÜM A – GENEL BİLGİLER" (A) ana bölümünü değerlendir:
- - Kapsam: A.* (A.1.1. Girişimcinin Tanıtımı
-A.1.2. İş Fikri
-A.2. Şirket Tanıtımı
-A.2.1. Misyon, Vizyon ve Değerler
-A.2.2. Şirket Tanımı
-A.2.3. Sahiplik Yapısı
-A.2.4. Endüstri, Konum, Tarihçe ve Mevcut Durum
-A.3.Ürün/Hizmetin Genel Tanıtımı
-A.3.1. Müşteriye Sağlanan Değer
-A.3.2.Yenilikçi Yönler
-A.3.3. Fikri Mülkiyet / Patent / Marka Durumu ve Süreci
-A.4. İş Modeli
-A.4.1. Gelir Modeli
-A.4.2. Temel Kaynaklar / Yetkinlikler
-A.5. Kuruluş ve Girişim Süreci
-A.6. Hedefler) 
-- Diğer ana bölümlere girmeden, sadece bu bölümün kalitesi/eksikleri/iyileştirmeleri üzerine odaklan. 
-
-Lütfen şu başlıklar altında değerlendirme yap: 
-
-1. **Genel Değerlendirme** 
-- BÖLÜM A – GENEL BİLGİLER bölümünün genel yapısı ve kapsamı
- - Güçlü yönler 
-- Genel eksiklikler 
-
-2. **Bölüm Bazlı Analiz** 
-İlgili alt bölüm kodları için (A.1.1. Girişimcinin Tanıtımı, A.1.2. İş Fikri, A.2. Şirket Tanıtımı, A.2.1. Misyon, Vizyon ve Değerler, A.2.2. Şirket Tanımı, A.2.3. Sahiplik Yapısı, A.2.4. Endüstri, Konum, Tarihçe ve Mevcut Durum, A.3.Ürün/Hizmetin Genel Tanıtımı, A.3.1. Müşteriye Sağlanan Değer, A.3.2.Yenilikçi Yönler, A.3.3. Fikri Mülkiyet / Patent / Marka Durumu ve Süreci, A.4. İş Modeli, A.4.1. Gelir Modeli, A.4.2. Temel Kaynaklar / Yetkinlikler, A.5. Kuruluş ve Girişim Süreci, A.6. Hedefler):
- - Bölümün mevcut olup olmadığı 
-- İçeriğin yeterliliği 
-- Yönergeye uygunluğu 
-- Eksik unsurlar
-- Bölümün geliştirilmesine yönelik somut öneriler (madde madde) 
-
-3. **Eksik Bölümler** 
-- Tamamen eksik olan alt bölümler (bölüm kodu ile) 
-- Kısmen eksik olan alt bölümler (bölüm kodu ile) 
-
-4. **Öneriler** 
-- Her eksik/eksik kalan alt bölüm için öneriler (bölüm kodu ile) 
-- İyileştirme tavsiyeleri 
-- Öncelik sırası (en kritik 5 aksiyon) 
-- Mevcut ama zayıf olan bölümler için geliştirme önerileri (bölüm kodu ile) 
-
+      A: `İş planını yönerge parçalarına göre detaylı olarak değerlendir ve eksik yönlerini belirle.
+⚠️ Bu istekte SADECE "BÖLÜM A – GENEL BİLGİLER" (A) ana bölümünü değerlendir:
+Kapsam: A.1.1 Girişimcinin Tanıtımı, A.1.2 İş Fikri, A.2 Şirket Tanıtımı,
+A.2.1 Misyon-Vizyon-Değerler, A.2.2 Şirket Tanımı, A.2.3 Sahiplik Yapısı,
+A.2.4 Endüstri/Konum/Tarihçe, A.3 Ürün-Hizmet Tanıtımı, A.3.1 Müşteri Değeri,
+A.3.2 Yenilikçi Yönler, A.3.3 Fikri Mülkiyet, A.4 İş Modeli,
+A.4.1 Gelir Modeli, A.4.2 Temel Kaynaklar, A.5 Kuruluş Süreci, A.6 Hedefler.
+1. **Genel Değerlendirme** – güçlü yönler ve genel eksiklikler
+2. **Bölüm Bazlı Analiz** – her alt bölüm için mevcut/yeterli mi, eksikler, öneriler
+3. **Eksik Bölümler** – tamamen veya kısmen eksik alt bölümler (kod ile)
+4. **Öneriler** – en kritik 5 aksiyon, iyileştirme tavsiyeleri
 Lütfen detaylı ve yapılandırılmış bir değerlendirme raporu hazırla.`,
-      B: `İş planını yönerge parçalarına göre detaylı olarak değerlendir ve eksik yönlerini belirle. 
-⚠️ Bu istekte SADECE " BÖLÜM B – PAZAR ANALİZİ" (B) ana bölümünü değerlendir:
- - Kapsam: B.* (B.1. Sektör Analizi, B.1.1. Pazar Büyüklüğü, B.1.2. Pazarın Gelişim Potansiyeli ve Trendleri, B.2. Rekabet Analizi, B.2.1. Doğrudan ve Dolaylı Rakipler, B.2.2. Rakiplerin Güçlü ve Zayıf Yönleri, B.2.3. Pazara Giriş Engelleri, B.3. Müşteri Analizi, B.3.1. Müşteri Doğrulama, B.3.2. Müşteri Segmentasyonu, B.3.3. Müşteri Profilleri, B.4. Pazarlama & Satış Stratejileri, B.4.1. Konumlandırma, B.4.2. Fiyatlandırma, B.4.3. Dağıtım Kanalları, B.4.4. Reklam ve Proomosyon, B.4.5. Satış Sonrası Hizmetler, B.4.6. Satış Projeksiyonları) 
-- Diğer ana bölümlere girmeden, sadece bu bölümün kalitesi/eksikleri/iyileştirmeleri üzerine odaklan. 
 
-Lütfen şu başlıklar altında değerlendirme yap: 
-
-1. **Genel Değerlendirme** 
-- BÖLÜM B – PAZAR ANALİZİ bölümünün genel yapısı ve kapsamı
- - Güçlü yönler 
-- Genel eksiklikler 
-
-2. **Bölüm Bazlı Analiz** 
-İlgili alt bölüm kodları için (B.1. Sektör Analizi, B.1.1. Pazar Büyüklüğü, B.1.2. Pazarın Gelişim Potansiyeli ve Trendleri, B.2. Rekabet Analizi, B.2.1. Doğrudan ve Dolaylı Rakipler, B.2.2. Rakiplerin Güçlü ve Zayıf Yönleri, B.2.3. Pazara Giriş Engelleri, B.3. Müşteri Analizi, B.3.1. Müşteri Doğrulama, B.3.2. Müşteri Segmentasyonu, B.3.3. Müşteri Profilleri, B.4. Pazarlama & Satış Stratejileri, B.4.1. Konumlandırma, B.4.2. Fiyatlandırma, B.4.3. Dağıtım Kanalları, B.4.4. Reklam ve Proomosyon, B.4.5. Satış Sonrası Hizmetler, B.4.6. Satış Projeksiyonları):
- - Bölümün mevcut olup olmadığı 
-- İçeriğin yeterliliği 
-- Yönergeye uygunluğu 
-- Eksik unsurlar
-- Bölümün geliştirilmesine yönelik somut öneriler (madde madde) 
-
-3. **Eksik Bölümler** 
-- Tamamen eksik olan alt bölümler (bölüm kodu ile) 
-- Kısmen eksik olan alt bölümler (bölüm kodu ile) 
-
-4. **Öneriler** 
-- Her eksik/eksik kalan alt bölüm için öneriler (bölüm kodu ile) 
-- İyileştirme tavsiyeleri 
-- Öncelik sırası (en kritik 5 aksiyon) 
-- Mevcut ama zayıf olan bölümler için geliştirme önerileri (bölüm kodu ile) 
-
+      B: `İş planını yönerge parçalarına göre detaylı olarak değerlendir ve eksik yönlerini belirle.
+⚠️ Bu istekte SADECE "BÖLÜM B – PAZAR ANALİZİ" (B) ana bölümünü değerlendir:
+Kapsam: B.1 Sektör Analizi, B.1.1 Pazar Büyüklüğü, B.1.2 Gelişim/Trendler,
+B.2 Rekabet Analizi, B.2.1 Rakipler, B.2.2 Güçlü/Zayıf Yönler,
+B.2.3 Giriş Engelleri, B.3 Müşteri Analizi, B.3.1 Doğrulama,
+B.3.2 Segmentasyon, B.3.3 Profiller, B.4 Pazarlama/Satış Stratejileri,
+B.4.1 Konumlandırma, B.4.2 Fiyatlandırma, B.4.3 Dağıtım,
+B.4.4 Reklam/Promosyon, B.4.5 Satış Sonrası, B.4.6 Projeksiyonlar.
+1. **Genel Değerlendirme** 2. **Bölüm Bazlı Analiz** 3. **Eksik Bölümler** 4. **Öneriler**
 Lütfen detaylı ve yapılandırılmış bir değerlendirme raporu hazırla.`,
-      C: ` İş planını yönerge parçalarına göre detaylı olarak değerlendir ve eksik yönlerini belirle. 
-⚠️ Bu istekte SADECE " C. TEKNİK ANALİZ" (C) ana bölümünü değerlendir:
-- Kapsam: C.* (C.1. Ürün / Hizmetin Teknik Tanımı, C.1.1. Teknik Özellikler, C.1.2. Teknolojik Üstünlükler, C.1.3. Ürün Yaşam Döngüsü, C.1.4. Prototip Durumu / TRL Seviyesi, C.2. Üretim ve Operasyon, C.2.1. Üretim Süreci ve Kapasitesi , C.2.2. Tedarikçiler, C.2.3. Makine, Hammadde vb. Kaynakların Seçimi, C.2.4. İş Akış Şeması, C.2.5. Kalite Güvence Sistemleri, C.2.6. Çevresel Etki, C.3. Kuruluş Yeri Seçimi, C.4. Ar-Ge ve Geliştirme Planı, C.4.1. Milestones, C.4.2. Gelecek Geliştirmeler, C.4.3. Ar-Ge Kaynak Planı, C.4.4.  Riskler ve Alternatif Teknik Çözümler)
-- Diğer ana bölümlere girmeden, sadece bu bölümün kalitesi/eksikleri/iyileştirmeleri üzerine odaklan. 
 
-Lütfen şu başlıklar altında değerlendirme yap: 
-
-1. *Genel Değerlendirme* 
-- C. TEKNİK ANALİZ bölümünün genel yapısı ve kapsamı
- - Güçlü yönler 
-- Genel eksiklikler 
-
-2. *Bölüm Bazlı Analiz* 
-İlgili alt bölüm kodları için (C.1. Ürün / Hizmetin Teknik Tanımı, C.1.1. Teknik Özellikler, C.1.2. Teknolojik Üstünlükler, C.1.3. Ürün Yaşam Döngüsü, C.1.4. Prototip Durumu / TRL Seviyesi, C.2. Üretim ve Operasyon, C.2.1. Üretim Süreci ve Kapasitesi , C.2.2. Tedarikçiler, C.2.3. Makine, Hammadde vb. Kaynakların Seçimi, C.2.4. İş Akış Şeması, C.2.5. Kalite Güvence Sistemleri, C.2.6. Çevresel Etki, C.3. Kuruluş Yeri Seçimi, C.4. Ar-Ge ve Geliştirme Planı, C.4.1. Milestones, C.4.2. Gelecek Geliştirmeler, C.4.3. Ar-Ge Kaynak Planı, C.4.4.  Riskler ve Alternatif Teknik Çözümler):
- - Bölümün mevcut olup olmadığı 
-- İçeriğin yeterliliği 
-- Yönergeye uygunluğu 
-- Eksik unsurlar
-- Bölümün geliştirilmesine yönelik somut öneriler (madde madde) 
-
-3. *Eksik Bölümler* 
-- Tamamen eksik olan alt bölümler (bölüm kodu ile) 
-- Kısmen eksik olan alt bölümler (bölüm kodu ile) 
-
-4. *Öneriler* 
-- Her eksik/eksik kalan alt bölüm için öneriler (bölüm kodu ile) 
-- İyileştirme tavsiyeleri 
-- Öncelik sırası (en kritik 5 aksiyon) 
-- Mevcut ama zayıf olan bölümler için geliştirme önerileri (bölüm kodu ile) 
-
+      C: `İş planını yönerge parçalarına göre detaylı olarak değerlendir ve eksik yönlerini belirle.
+⚠️ Bu istekte SADECE "C. TEKNİK ANALİZ" (C) ana bölümünü değerlendir:
+Kapsam: C.1 Teknik Tanım, C.1.1-C.1.4 Teknik Özellikler/TRL,
+C.2 Üretim/Operasyon, C.2.1-C.2.6, C.3 Kuruluş Yeri, C.4 Ar-Ge Planı, C.4.1-C.4.4.
+1. **Genel Değerlendirme** 2. **Bölüm Bazlı Analiz** 3. **Eksik Bölümler** 4. **Öneriler**
 Lütfen detaylı ve yapılandırılmış bir değerlendirme raporu hazırla.`,
-      D: `İş planını yönerge parçalarına göre detaylı olarak değerlendir ve eksik yönlerini belirle. 
-⚠️ Bu istekte SADECE " D. ORGANİZASYONEL ANALİZ" (D) ana bölümünü değerlendir:
-- Kapsam: D.* (D.1. Organizasyon Yapısı, D.1.1. Örgüt Şeması, D.1.2. İş Tanımı ve İş Şartnameleri, D.2. İnsan Kaynakları Planı, D.2.1. Personel İhtiyacı, D.2.2. Eğitim ve İşe Alım Stratejileri, D.3. İşgücü Maliyetleri)
-- Diğer ana bölümlere girmeden, sadece bu bölümün kalitesi/eksikleri/iyileştirmeleri üzerine odaklan. 
 
-Lütfen şu başlıklar altında değerlendirme yap: 
-
-1. *Genel Değerlendirme* 
-- D. ORGANİZASYONEL ANALİZ bölümünün genel yapısı ve kapsamı
- - Güçlü yönler 
-- Genel eksiklikler 
-
-2. *Bölüm Bazlı Analiz* 
-İlgili alt bölüm kodları için (D.1. Organizasyon Yapısı, D.1.1. Örgüt Şeması, D.1.2. İş Tanımı ve İş Şartnameleri, D.2. İnsan Kaynakları Planı, D.2.1. Personel İhtiyacı, D.2.2. Eğitim ve İşe Alım Stratejileri, D.3. İşgücü Maliyetleri):
- - Bölümün mevcut olup olmadığı 
-- İçeriğin yeterliliği 
-- Yönergeye uygunluğu 
-- Eksik unsurlar
-- Bölümün geliştirilmesine yönelik somut öneriler (madde madde) 
-
-3. *Eksik Bölümler* 
-- Tamamen eksik olan alt bölümler (bölüm kodu ile) 
-- Kısmen eksik olan alt bölümler (bölüm kodu ile) 
-
-4. *Öneriler* 
-- Her eksik/eksik kalan alt bölüm için öneriler (bölüm kodu ile) 
-- İyileştirme tavsiyeleri 
-- Öncelik sırası (en kritik 5 aksiyon) 
-- Mevcut ama zayıf olan bölümler için geliştirme önerileri (bölüm kodu ile) 
-
+      D: `İş planını yönerge parçalarına göre detaylı olarak değerlendir ve eksik yönlerini belirle.
+⚠️ Bu istekte SADECE "D. ORGANİZASYONEL ANALİZ" (D) ana bölümünü değerlendir:
+Kapsam: D.1 Organizasyon Yapısı, D.1.1 Örgüt Şeması, D.1.2 İş Tanımları,
+D.2 İK Planı, D.2.1 Personel İhtiyacı, D.2.2 Eğitim/İşe Alım, D.3 İşgücü Maliyetleri.
+1. **Genel Değerlendirme** 2. **Bölüm Bazlı Analiz** 3. **Eksik Bölümler** 4. **Öneriler**
 Lütfen detaylı ve yapılandırılmış bir değerlendirme raporu hazırla.`,
-      E: `İş planını yönerge parçalarına göre detaylı olarak değerlendir ve eksik yönlerini belirle. 
-⚠️ Bu istekte SADECE " E. FİNANSAL ANALİZ " (E) ana bölümünü değerlendir:
-- Kapsam: E.* (E.1. Temel Finansal Varsayımlar ve Birim Ekonomi, E.2. Birim Ekonomi Göstergeleri, E.3. Gelirler, E.4. Giderler Analizi, E.4.1. Kuruluş Sermayesi, E.4.2. İşletme Sermayesini Oluşturan Temel Kalemler, E.5. Başa Baş Noktası Analizi, E.6. Gelir-Gider Tablosu, E.7. Karlılık Analizi, E.8. Toplam Sermaye İhtiyacı ve Finansman Kaynakları, E.9. Finansal Riskler ve Duyarlılık Analizi)
-- Diğer ana bölümlere girmeden, sadece bu bölümün kalitesi/eksikleri/iyileştirmeleri üzerine odaklan. 
 
-Lütfen şu başlıklar altında değerlendirme yap: 
-
-1. *Genel Değerlendirme* 
-- E. FİNANSAL ANALİZ bölümünün genel yapısı ve kapsamı
- - Güçlü yönler 
-- Genel eksiklikler 
-
-2. *Bölüm Bazlı Analiz* 
-İlgili alt bölüm kodları için (E.1. Temel Finansal Varsayımlar ve Birim Ekonomi, E.2. Birim Ekonomi Göstergeleri, E.3. Gelirler, E.4. Giderler Analizi, E.4.1. Kuruluş Sermayesi, E.4.2. İşletme Sermayesini Oluşturan Temel Kalemler, E.5. Başa Baş Noktası Analizi, E.6. Gelir-Gider Tablosu, E.7. Karlılık Analizi, E.8. Toplam Sermaye İhtiyacı ve Finansman Kaynakları, E.9. Finansal Riskler ve Duyarlılık Analizi):
- - Bölümün mevcut olup olmadığı 
-- İçeriğin yeterliliği 
-- Yönergeye uygunluğu 
-- Eksik unsurlar
-- Bölümün geliştirilmesine yönelik somut öneriler (madde madde) 
-
-3. *Eksik Bölümler* 
-- Tamamen eksik olan alt bölümler (bölüm kodu ile) 
-- Kısmen eksik olan alt bölümler (bölüm kodu ile) 
-
-4. *Öneriler* 
-- Her eksik/eksik kalan alt bölüm için öneriler (bölüm kodu ile) 
-- İyileştirme tavsiyeleri 
-- Öncelik sırası (en kritik 5 aksiyon) 
-- Mevcut ama zayıf olan bölümler için geliştirme önerileri (bölüm kodu ile) 
-
+      E: `İş planını yönerge parçalarına göre detaylı olarak değerlendir ve eksik yönlerini belirle.
+⚠️ Bu istekte SADECE "E. FİNANSAL ANALİZ" (E) ana bölümünü değerlendir:
+Kapsam: E.1-E.9 (Varsayımlar, Birim Ekonomi, Gelirler, Giderler, Başa Baş,
+Gelir-Gider Tablosu, Karlılık, Sermaye İhtiyacı, Finansal Riskler).
+1. **Genel Değerlendirme** 2. **Bölüm Bazlı Analiz** 3. **Eksik Bölümler** 4. **Öneriler**
 Lütfen detaylı ve yapılandırılmış bir değerlendirme raporu hazırla.`,
-      F: `İş planını yönerge parçalarına göre detaylı olarak değerlendir ve eksik yönlerini belirle. 
-⚠️ Bu istekte SADECE " F. SONUÇ" (F) ana bölümünü değerlendir:
- - Kapsam: F.* (F.1.Genel Değerlendirme ve Yatırımcı Özeti, F.2. SWOT Analizi (Yatırımcı Perspektifiyle))
-- Diğer ana bölümlere girmeden, sadece bu bölümün kalitesi/eksikleri/iyileştirmeleri üzerine odaklan. 
 
-Lütfen şu başlıklar altında değerlendirme yap: 
-
-1. *Genel Değerlendirme* 
-- F. SONUÇ bölümünün genel yapısı ve kapsamı
- - Güçlü yönler 
-- Genel eksiklikler 
-
-2. *Bölüm Bazlı Analiz* 
-İlgili alt bölüm kodları için (F.1.Genel Değerlendirme ve Yatırımcı Özeti, F.2. SWOT Analizi (Yatırımcı Perspektifiyle)):
- - Bölümün mevcut olup olmadığı 
-- İçeriğin yeterliliği 
-- Yönergeye uygunluğu 
-- Eksik unsurlar
-- Bölümün geliştirilmesine yönelik somut öneriler (madde madde) 
-
-3. *Eksik Bölümler* 
-- Tamamen eksik olan alt bölümler (bölüm kodu ile) 
-- Kısmen eksik olan alt bölümler (bölüm kodu ile) 
-
-4. *Öneriler* 
-- Her eksik/eksik kalan alt bölüm için öneriler (bölüm kodu ile) 
-- İyileştirme tavsiyeleri 
-- Öncelik sırası (en kritik 5 aksiyon) 
-- Mevcut ama zayıf olan bölümler için geliştirme önerileri (bölüm kodu ile) 
-
+      F: `İş planını yönerge parçalarına göre detaylı olarak değerlendir ve eksik yönlerini belirle.
+⚠️ Bu istekte SADECE "F. SONUÇ" (F) ana bölümünü değerlendir:
+Kapsam: F.1 Genel Değerlendirme ve Yatırımcı Özeti, F.2 SWOT Analizi.
+1. **Genel Değerlendirme** 2. **Bölüm Bazlı Analiz** 3. **Eksik Bölümler** 4. **Öneriler**
 Lütfen detaylı ve yapılandırılmış bir değerlendirme raporu hazırla.`,
     };
+    */
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // KISA PROMPT MODU — Her bölüm için 1 paragraflık özet değerlendirme + puan.
+    // Uzun moda geçmek için yukarıdaki /* */ bloğunu aç, bu bloğu yorum satırına al.
+    // ─────────────────────────────────────────────────────────────────────────
+    const sectionScopes: Record<string, string> = {
+      A: 'BÖLÜM A – GENEL BİLGİLER (A.1.1 Girişimci Tanıtımı, A.1.2 İş Fikri, A.2 Şirket Tanıtımı, A.3 Ürün/Hizmet, A.4 İş Modeli, A.5 Kuruluş Süreci, A.6 Hedefler)',
+      B: 'BÖLÜM B – PAZAR ANALİZİ (B.1 Sektör, B.2 Rekabet, B.3 Müşteri Analizi, B.4 Pazarlama & Satış)',
+      C: 'BÖLÜM C – TEKNİK ANALİZ (C.1 Teknik Tanım, C.2 Üretim/Operasyon, C.3 Kuruluş Yeri, C.4 Ar-Ge Planı)',
+      D: 'BÖLÜM D – ORGANİZASYONEL ANALİZ (D.1 Organizasyon, D.2 İnsan Kaynakları, D.3 İşgücü Maliyetleri)',
+      E: 'BÖLÜM E – FİNANSAL ANALİZ (E.1-E.9: Varsayımlar, Gelirler, Giderler, Başa Baş, Karlılık, Sermaye, Riskler)',
+      F: 'BÖLÜM F – SONUÇ (F.1 Yatırımcı Özeti, F.2 SWOT Analizi)',
+    };
+
+    const evaluationPromptBySection: Record<string, string> = Object.fromEntries(
+      Object.entries(sectionScopes).map(([letter, scope]) => [
+        letter,
+        `İş planındaki "${scope}" kapsamını değerlendir.
+Sadece bu bölüme odaklan; diğer bölümlere girme.
+Yanıtın TEK bir paragraftan oluşsun: bölümün genel durumunu, en önemli güçlü yönlerini ve kritik eksikliklerini özlü biçimde özetle.
+Paragrafın hemen ardına yeni bir satırda yalnızca "Bölüm Puanı: XX/100" yaz (XX bu bölüm için 0-100 arası tam sayı puan).`,
+      ])
+    );
 
     // Debug: Email kontrolü
     console.log('=== EVALUATION DEBUG ===');
@@ -636,11 +515,6 @@ Lütfen detaylı ve yapılandırılmış bir değerlendirme raporu hazırla.`,
     console.log('Collection name:', uploadedFile.collectionName);
     console.log('Section letter:', sectionLetter);
     console.log('=======================');
-
-    const basePrompt = evaluationPromptBySection[sectionLetter] || evaluationPromptBySection.A;
-    const evaluationPrompt =
-      basePrompt +
-      `\n\n5. *Puan (0-100)*\n- Bu bölüm için 0-100 arası tam sayı puan ver.\n- Raporun EN SONUNA tek satır olarak "Bölüm Puanı: XX/100" ekle (XX 0-100 arası tam sayı).`;
 
     try {
       await sendMessage({ text: evaluationPrompt });
