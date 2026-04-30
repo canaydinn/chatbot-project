@@ -187,9 +187,17 @@ export default function ChatPage() {
     };
 
     // 1) Tercih edilen: "Bölüm Puanı: XX/100" veya "Genel Puan: XX/100"
-    //    Ayrıca ":" yerine "-" gelebilir ve sayı **bold** olabilir.
-    const labeledOutOf100 = /(?:^|\n)\s*\**\s*(?:bölüm\s*)?(?:puan[ıi]|skor|score)\s*[:\-]\s*\**\s*(\d{1,3})\s*\**\s*\/\s*100\b/gi;
-    const labeledGeneralOutOf100 = /(?:^|\n)\s*\**\s*(?:genel\s*)?(?:puan|skor|score)\s*[:\-]\s*\**\s*(\d{1,3})\s*\**\s*\/\s*100\b/gi;
+    //    Ayrıca ":" yerine "-" gelebilir, satır madde işaretiyle başlayabilir ve sayı **bold** olabilir.
+    const linePrefix = String.raw`(?:^|\n)\s*(?:[-*]\s*)?\**\s*`;
+    const labelWord = String.raw`(?:puan[ıi]?|skor|score)`;
+    const labeledOutOf100 = new RegExp(
+      `${linePrefix}(?:bölüm\\s*)?${labelWord}\\s*[:\\-]\\s*\\**\\s*(\\d{1,3})\\s*\\**\\s*\\/\\s*100\\b`,
+      'gi'
+    );
+    const labeledGeneralOutOf100 = new RegExp(
+      `${linePrefix}(?:genel\\s*)?${labelWord}\\s*[:\\-]\\s*\\**\\s*(\\d{1,3})\\s*\\**\\s*\\/\\s*100\\b`,
+      'gi'
+    );
 
     // 2) Sadece "XX/100" (etiketsiz, genelde en sonda gelir)
     const bareOutOf100 = /(?:^|\n)\s*\**\s*(\d{1,3})\s*\**\s*\/\s*100\b/gi;
@@ -197,7 +205,14 @@ export default function ChatPage() {
     // 3) "100 üzerinden XX"
     const outOf100Words = /100\s*üzerinden\s*(\d{1,3})\b/gi;
     // 4) "Puan: XX" (bazı yanıtlarda /100 yazılmadan gelebiliyor)
-    const labeledPlain = /(?:^|\n)\s*\**\s*(?:bölüm\s*)?(?:genel\s*)?(?:puan[ıi]?|skor|score)\s*[:\-]\s*\**\s*(\d{1,3})\b/gi;
+    const labeledPlain = new RegExp(
+      `${linePrefix}(?:bölüm\\s*)?(?:genel\\s*)?${labelWord}\\s*[:\\-]\\s*\\**\\s*(\\d{1,3})\\b`,
+      'gi'
+    );
+
+    // 5) Etiketin satır başında olmadığı varyantlar:
+    //    "Sonuç olarak Genel Puanı: 82/100" gibi cümle içi kullanımlar.
+    const inlineLabeledOutOf100 = /\b(?:bölüm|genel)?\s*(?:puan[ıi]?|skor|score)\s*[:\-]\s*(\d{1,3})\s*\/\s*100\b/gi;
 
     const pickLastMatch = (re: RegExp) => {
       let m: RegExpExecArray | null = null;
@@ -210,6 +225,7 @@ export default function ChatPage() {
     const candidates = [
       pickLastMatch(labeledOutOf100),
       pickLastMatch(labeledGeneralOutOf100),
+      pickLastMatch(inlineLabeledOutOf100),
       pickLastMatch(outOf100Words),
       pickLastMatch(bareOutOf100),
       pickLastMatch(labeledPlain),
