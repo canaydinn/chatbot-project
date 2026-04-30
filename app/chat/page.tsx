@@ -190,6 +190,8 @@ export default function ChatPage() {
     // Model bazen markdown, farklı ayraçlar veya unicode slash kullanabiliyor.
     // Bu yüzden önce normalize edip, sonra birkaç yaygın formata toleranslı parse ediyoruz.
     const normalized = text
+      .replace(/\r\n/g, '\n') // Windows line endings
+      .replace(/\r/g, '\n')   // old Mac line endings
       .replace(/\u00a0/g, ' ') // NBSP
       .replace(/[／⁄]/g, '/') // unicode slash variants
       .replace(/[：]/g, ':') // full-width colon
@@ -228,7 +230,11 @@ export default function ChatPage() {
 
     // 5) Etiketin satır başında olmadığı varyantlar:
     //    "Sonuç olarak Genel Puanı: 82/100" gibi cümle içi kullanımlar.
-    const inlineLabeledOutOf100 = /\b(?:bölüm|genel)?\s*(?:puan[ıi]?|skor|score)\s*[:\-]\s*(\d{1,3})\s*\/\s*100\b/gi;
+    const inlineLabeledOutOf100 = /\b(?:bölüm|genel)?\s*(?:puan[ıi]?|skor|score)\s*[:\-]\s*\**\s*(\d{1,3})\s*\**\s*\/\s*100\b/gi;
+
+    // 6) Son çare: metinde geçen herhangi bir "XX/100" kalıbı.
+    //    Bu en toleranslı yaklaşım; diğerleri başarısız olduğunda devreye girer.
+    const anyOutOf100 = /\b(\d{1,3})\s*\/\s*100\b/g;
 
     const pickLastMatch = (re: RegExp) => {
       let m: RegExpExecArray | null = null;
@@ -245,6 +251,7 @@ export default function ChatPage() {
       pickLastMatch(outOf100Words),
       pickLastMatch(bareOutOf100),
       pickLastMatch(labeledPlain),
+      pickLastMatch(anyOutOf100),
     ];
 
     for (const c of candidates) {
@@ -275,8 +282,9 @@ export default function ChatPage() {
 
     if (score === null) {
       console.warn(
-        'Score not found in assistant response. Expected: "Bölüm Puanı: XX/100" or "Genel Puan: XX/100". Last 400 chars:',
-        assistantText.slice(-400)
+        '[Score] Puan bulunamadı. Toplam karakter:', assistantText.length,
+        '\nİlk 300 karakter:', assistantText.slice(0, 300),
+        '\nSon 500 karakter:', assistantText.slice(-500)
       );
       return;
     }
