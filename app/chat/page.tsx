@@ -153,7 +153,7 @@ export default function ChatPage() {
   } | null>(null);
   const [sectionScoreHistory, setSectionScoreHistory] = useState<Record<string, number[]>>({});
   const scoreSaveInFlightRef = useRef<boolean>(false);
-  const prevIsLoadingRef = useRef<boolean>(false);
+  const lastProcessedMsgIdRef = useRef<string | null>(null);
 
   const getMessageText = (message: any): string => {
     if (!message) return '';
@@ -264,27 +264,35 @@ export default function ChatPage() {
   };
 
   // Değerlendirme tamamlanınca puanı yakalayıp Sheet'e kaydet
+  // isLoading ve messages bağımsız React state'leri olduğundan bazen farklı render
+  // döngülerinde güncellenir. Bu yüzden "loading bitti" anına değil, mesaj ID'sine
+  // bakarak işliyoruz: streaming bitmişken yeni bir asistan mesajı geldiyse skoru al.
   useEffect(() => {
-    const wasLoading = prevIsLoadingRef.current;
-    prevIsLoadingRef.current = isLoading;
-
-    if (!wasLoading || isLoading) return;
     const sectionLetter = pendingScoreSectionLetterRef.current || pendingScoreSectionLetter;
     if (!sectionLetter || !userEmail) return;
+    if (isLoading) return; // stream henüz bitmedi
     if (scoreSaveInFlightRef.current) return;
 
-    const reversedAssistantMessages = [...messages].reverse().filter((m: any) => m?.role === 'assistant');
-    const lastAssistantMessage =
-      reversedAssistantMessages.find((m: any) => getMessageText(m).trim().length > 0) ||
-      reversedAssistantMessages[0];
+    const assistantMessages = messages.filter((m: any) => m?.role === 'assistant');
+    if (assistantMessages.length === 0) return;
+    const lastAssistantMessage = assistantMessages[assistantMessages.length - 1];
+    if (!lastAssistantMessage?.id) return;
+
+    // Aynı mesajı ikinci kez işleme
+    if (lastProcessedMsgIdRef.current === lastAssistantMessage.id) return;
+
     const assistantText = getMessageText(lastAssistantMessage);
+    if (!assistantText.trim()) return; // mesaj henüz boş, bir sonraki render'da tekrar dene
+
+    lastProcessedMsgIdRef.current = lastAssistantMessage.id;
+
     const score = extractSectionScore(assistantText);
 
     if (score === null) {
       console.warn(
         '[Score] Puan bulunamadı. Toplam karakter:', assistantText.length,
-        '\nİlk 300 karakter:', assistantText.slice(0, 300),
-        '\nSon 500 karakter:', assistantText.slice(-500)
+        '\nİlk 300:', assistantText.slice(0, 300),
+        '\nSon 500:', assistantText.slice(-500)
       );
       return;
     }
@@ -338,6 +346,8 @@ export default function ChatPage() {
         scoreSaveInFlightRef.current = false;
         pendingScoreSectionLetterRef.current = null;
         setPendingScoreSectionLetter(null);
+        // Sonraki bölüm değerlendirmesinde aynı mesaj tekrar işlenmesin diye sıfırla
+        lastProcessedMsgIdRef.current = null;
       });
   }, [isLoading, messages, pendingScoreSectionLetter, userEmail]);
 
