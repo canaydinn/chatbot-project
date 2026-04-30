@@ -254,6 +254,15 @@ export async function POST(req: NextRequest) {
     const qdrantClient = getQdrantClient();
     const openaiClient = getOpenAIClient();
 
+    // Yeni dosya yüklendiğinde eski koleksiyonu tamamen sil ve sıfırla.
+    // Bu yapılmazsa eski dosyanın chunk'ları (daha yüksek ID'li olanlar) koleksiyonda
+    // kalır ve yeni dosyanın içeriğiyle karışır; LLM hatalı bağlam görür.
+    try {
+      await qdrantClient.deleteCollection(collectionName);
+      console.log(`Deleted existing collection before re-upload: ${collectionName}`);
+    } catch {
+      // Koleksiyon zaten yoksa hata normal, görmezden gel
+    }
     await ensureCollectionReady(qdrantClient, collectionName);
 
     // Metni chunk'lara ayır

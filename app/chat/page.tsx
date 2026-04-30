@@ -137,7 +137,7 @@ export default function ChatPage() {
     }),
   });
   
-  const { messages, sendMessage, status } = chat;
+  const { messages, setMessages, sendMessage, status } = chat;
   const isLoading = status === 'submitted' || status === 'streaming';
 
   const [input, setInput] = useState('');
@@ -731,6 +731,13 @@ Lütfen detaylı ve yapılandırılmış bir değerlendirme raporu hazırla.`,
           content: `Dosya Qdrant'a yüklendi (${data.chunksCount} chunk)`,
           collectionName: data.collectionName,
         });
+        // Yeni dosya yüklenince önceki sohbeti ve puan geçmişini temizle.
+        // Aksi takdirde eski değerlendirme mesajları LLM context'ine karışır.
+        setMessages([]);
+        setLatestSectionInfo(null);
+        setSectionScoreHistory({});
+        lastProcessedMsgIdRef.current = null;
+        pendingScoreSectionLetterRef.current = null;
         alert(`Dosya başarıyla yüklendi! ${data.chunksCount} parçaya ayrıldı ve Qdrant'a kaydedildi.`);
       } else {
         throw new Error(data?.error || 'Dosya yüklenirken bir hata oluştu');
