@@ -516,6 +516,8 @@ Paragrafın hemen ardına yeni bir satırda yalnızca "Bölüm Puanı: XX/100" y
     console.log('Section letter:', sectionLetter);
     console.log('=======================');
 
+    const evaluationPrompt = evaluationPromptBySection[sectionLetter] || evaluationPromptBySection.A;
+
     try {
       await sendMessage({ text: evaluationPrompt });
     } catch (error) {
