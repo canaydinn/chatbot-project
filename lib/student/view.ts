@@ -127,7 +127,7 @@ export function seal<T>(value: T): T {
 
 export type HomeView = {
   activeWeek: { weekNumber: number; title: string; task: string | null } | null;
-  timeRemaining: null;
+  timeRemaining: number | null;
   previousWeeks: { weekNumber: number; title: string; summary: string }[];
   enrollmentNote: string | null;
 };
@@ -143,8 +143,12 @@ export type WeekView = {
   versions: { v0: string | null; v1: string | null };
   feedback: FeedbackCard;
   coachPanel: boolean;
-  questionsRemaining: null;
-  timeRemaining: null;
+  questionsRemaining: number | null;
+  timeRemaining: number | null;
+  showSourceList: boolean;
+  minutesReady: boolean;
+  stage: string | null;
+  isV0V1: boolean;
 };
 
 function asRecord(value: unknown, message: string): Record<string, unknown> {
@@ -152,6 +156,11 @@ function asRecord(value: unknown, message: string): Record<string, unknown> {
     throw new Error(message);
   }
   return value as Record<string, unknown>;
+}
+
+function wholeCount(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) return null;
+  return value;
 }
 
 function asText(value: unknown): string | null {
@@ -172,7 +181,7 @@ export function readStudentSession(value: unknown): StudentSession {
       consent === "ACCEPTED" || consent === "DECLINED" || consent === "WITHDRAWN"
         ? consent
         : null,
-    questionsRemaining: null,
+    questionsRemaining: wholeCount(row.questionsRemaining),
   });
   assertStudentSessionShape(payload);
   return seal(payload);
@@ -207,7 +216,7 @@ export function readHomeView(value: unknown): HomeView {
     : [];
   return seal({
     activeWeek,
-    timeRemaining: null,
+    timeRemaining: wholeCount(row.timeRemaining),
     previousWeeks,
     enrollmentNote: asText(row.enrollmentNote),
   });
@@ -252,7 +261,11 @@ export function readWeekView(value: unknown): WeekView {
     },
     feedback: card,
     coachPanel: row.coachPanel === true,
-    questionsRemaining: null,
-    timeRemaining: null,
+    questionsRemaining: wholeCount(row.questionsRemaining),
+    timeRemaining: wholeCount(row.timeRemaining),
+    showSourceList: row.showSourceList === true,
+    minutesReady: row.minutesReady === true,
+    stage: typeof row.stage === "string" ? row.stage : null,
+    isV0V1: row.isV0V1 === true,
   });
 }

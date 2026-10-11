@@ -3,6 +3,7 @@ import { streamText } from 'ai';
 import { QdrantClient } from '@qdrant/js-client-rest';
 import OpenAI from 'openai';
 import { gateOperation, readActor } from '@/lib/auth/actor';
+import { consumeWeeklyQuota, logRagRequest, readStageClock, syncStage } from '@/lib/research/lock';
 import { publicChatErrorBody } from '@/lib/api/chat-error';
 
 // Qdrant client'ı oluştur
@@ -162,7 +163,21 @@ export async function POST(req: Request) {
         { status: 401, headers: { 'Content-Type': 'application/json' } }
       );
     }
-    const access = gateOperation(actor, 'RAG');
+    let phase = actor.phase;
+    if (actor.researchCode && actor.activeWeek != null) {
+      try {
+        await syncStage(actor.researchCode, actor.activeWeek);
+        const clock = await readStageClock(actor.researchCode, actor.activeWeek);
+        if (clock.isV0V1) phase = clock.stage === 'V1_OPEN' ? 'REVISION' : 'V0';
+      } catch (error) {
+        console.error('Aşama saati okunamadı:', error);
+        return new Response(JSON.stringify(publicChatErrorBody()), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+    }
+    const access = gateOperation({ ...actor, phase }, 'RAG');
     if (!access.allowed) {
       return new Response(
         JSON.stringify({ error: access.reason }),
@@ -208,6 +223,32 @@ export async function POST(req: Request) {
           type: typeof userQuestion
         }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!actor.researchCode || actor.activeWeek == null) {
+      return new Response(
+        JSON.stringify({ error: 'Aktif hafta yok.' }),
+        { status: 403, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+    let quota;
+    try {
+      quota = await consumeWeeklyQuota(actor.researchCode, actor.activeWeek);
+      if (quota.allowed) {
+        await logRagRequest(actor.researchCode, actor.activeWeek, userQuestion);
+      }
+    } catch (error) {
+      console.error('Soru hakkı düşülemedi:', error);
+      return new Response(JSON.stringify(publicChatErrorBody()), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    if (!quota.allowed) {
+      return new Response(
+        JSON.stringify({ error: quota.reason }),
+        { status: 403, headers: { 'Content-Type': 'application/json' } }
       );
     }
 

@@ -62,7 +62,7 @@ describe("öğrenci görünümü", () => {
       total_score: 90,
     });
     assert.equal(session.role, "INSTRUCTOR");
-    assert.equal(session.questionsRemaining, null);
+    assert.equal(session.questionsRemaining, 4);
     assert.equal(session.coachPanel, false);
     assert.equal("total_score" in session, false);
 
@@ -72,7 +72,7 @@ describe("öğrenci görünümü", () => {
       previousWeeks: [{ weekNumber: 1, title: "Problem", summary: "kısa", puan: 10 }],
       enrollmentNote: null,
     });
-    assert.equal(home.timeRemaining, null);
+    assert.equal(home.timeRemaining, 3);
     assert.equal(home.previousWeeks[0]?.summary, "kısa");
     assertNoResearchScores(home);
 
@@ -88,7 +88,7 @@ describe("öğrenci görünümü", () => {
       questionsRemaining: 2,
     });
     assert.equal(week.coachPanel, true);
-    assert.equal(week.questionsRemaining, null);
+    assert.equal(week.questionsRemaining, 2);
     assert.equal(week.draft?.f1, "not");
     assert.equal(week.feedback.strengths, "net örnek");
     assert.equal(week.versions.v0, "ilk");

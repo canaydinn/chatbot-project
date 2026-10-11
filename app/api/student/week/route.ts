@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { Actor } from "@/lib/auth/actor";
 import { createAdminSupabase } from "@/lib/supabase/admin";
+import { recordSubmission, readStageClock, syncStage } from "@/lib/research/lock";
 import { studentActor } from "@/lib/student/http";
 import {
   emptyFeedback,
@@ -54,6 +55,33 @@ export async function POST(request: Request) {
     const admin = createAdminSupabase();
     const fieldRows = await loadFields(admin, actor.activeWeek);
     const fields = sanitizeFields(record.fields, new Set(fieldRows.map((field) => field.id)));
+
+    const weekRow = await admin
+      .from("weeks")
+      .select("is_v0_v1")
+      .eq("week_number", actor.activeWeek)
+      .maybeSingle();
+    if (weekRow.error) throw new Error(weekRow.error.message);
+
+    if (weekRow.data?.is_v0_v1 && actor.researchCode && record.action === "submit") {
+      const summary =
+        typeof (record as { summary?: unknown }).summary === "string"
+          ? (record as { summary: string }).summary.trim()
+          : "";
+      if (!summary) {
+        return NextResponse.json({ error: "Kısa revizyon özeti gerekli." }, { status: 400 });
+      }
+      await syncStage(actor.researchCode, actor.activeWeek);
+      const versionKind = await recordSubmission(
+        actor.researchCode,
+        actor.activeWeek,
+        { fields },
+        summary,
+      );
+      return NextResponse.json(
+        seal({ stored: true, versionKind, message: `${versionKind} kilitlendi.` }),
+      );
+    }
 
     if (!actor.researchCode) {
       const message =
@@ -141,7 +169,15 @@ async function loadWeek(actor: Actor) {
 
   let draft: Record<string, string> | null = null;
   const versions = { v0: null as string | null, v1: null as string | null };
+  let clock = {
+    stage: null as string | null,
+    secondsRemaining: null as number | null,
+    minutesReady: false,
+    isV0V1: false,
+  };
   if (actor.researchCode && actor.activeWeek != null) {
+    await syncStage(actor.researchCode, actor.activeWeek);
+    clock = await readStageClock(actor.researchCode, actor.activeWeek);
     const drafts = await admin
       .from("events")
       .select("message")
@@ -181,9 +217,13 @@ async function loadWeek(actor: Actor) {
     draft,
     versions,
     feedback: emptyFeedback(),
-    coachPanel: actor.condition === "RAG_ASSISTED",
-    questionsRemaining: null as null,
-    timeRemaining: null as null,
+    coachPanel: actor.condition === "RAG_ASSISTED" && clock.stage === "V1_OPEN",
+    questionsRemaining: actor.questionsRemaining,
+    timeRemaining: clock.secondsRemaining,
+    showSourceList: actor.condition === "CONTROL" && clock.stage === "V1_OPEN",
+    minutesReady: clock.minutesReady,
+    stage: clock.stage,
+    isV0V1: clock.isV0V1,
   });
 }
 

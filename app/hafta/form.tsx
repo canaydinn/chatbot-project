@@ -13,7 +13,8 @@ function HaftaIcerik() {
   const [error, setError] = useState("");
   const [saveNote, setSaveNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [Panel, setPanel] = useState<ComponentType | null>(null);
+  const [summary, setSummary] = useState("");
+  const [Panel, setPanel] = useState<ComponentType<{ remaining: number | null }> | null>(null);
   const dirty = useRef(false);
   const loaded = useRef(false);
 
@@ -121,7 +122,7 @@ function HaftaIcerik() {
       const response = await fetch("/api/student/week", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "submit", fields: values }),
+        body: JSON.stringify({ action: "submit", fields: values, summary }),
       });
       const body: unknown = await response.json().catch(() => null);
       const record =
@@ -162,6 +163,9 @@ function HaftaIcerik() {
         ) : (
           <p className="mt-1 whitespace-pre-wrap text-sm text-stone-600">{week.task}</p>
         )}
+        <p className="mt-3 text-sm text-stone-700">
+          {timeLabel(week)}
+        </p>
         <form
           className="mt-4 space-y-4"
           onSubmit={(event) => {
@@ -183,6 +187,18 @@ function HaftaIcerik() {
               />
             </label>
           ))}
+          {week.isV0V1 && (
+            <label className="block text-sm">
+              <span className="font-medium">Kısa revizyon özeti</span>
+              <textarea
+                value={summary}
+                onChange={(event) => setSummary(event.target.value)}
+                rows={2}
+                required
+                className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-3 text-base"
+              />
+            </label>
+          )}
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <button
               type="submit"
@@ -201,9 +217,24 @@ function HaftaIcerik() {
       </section>
       <GeriBildirimKarti feedback={week.feedback} />
       <DosyaYukleme />
-      {week.coachPanel && Panel ? <Panel /> : null}
+      {week.showSourceList && (
+        <section className="rounded-2xl border border-stone-200 bg-white p-4">
+          <h2 className="text-lg font-semibold">Onaylı kaynak listesi</h2>
+          <p className="mt-2 text-sm text-stone-600">
+            Onaylı yapay zekasız kaynak listesi henüz girilmedi.
+          </p>
+        </section>
+      )}
+      {week.coachPanel && Panel ? <Panel remaining={week.questionsRemaining} /> : null}
     </div>
   );
+}
+
+function timeLabel(week: WeekView) {
+  if (week.stage === "V0_LOCKED" || week.stage === "V1_LOCKED") return "Bu aşama kilitli.";
+  if (typeof week.timeRemaining === "number") return `Kalan süre: ${week.timeRemaining} saniye`;
+  if (week.isV0V1 && !week.minutesReady) return "Süre henüz girilmedi. Bu aşama açılmaz.";
+  return "Süre sınırı tanımlı değil.";
 }
 
 export function HaftaFormu() {

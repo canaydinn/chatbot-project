@@ -9,6 +9,7 @@ import {
   type StudentSession,
   type StudyCondition,
 } from "@/lib/research/access";
+import { questionsLeft, quotaLimitFromEnv } from "@/lib/research/stages";
 
 type Consent = "ACCEPTED" | "DECLINED" | "WITHDRAWN";
 
@@ -22,6 +23,7 @@ export type Actor = {
   consent: Consent | null;
   phase: ReturnType<typeof resolveAiPhase>;
   activeWeek: number | null;
+  questionsRemaining: number | null;
 };
 
 export async function readActor(): Promise<Actor | null> {
@@ -79,6 +81,37 @@ export async function readActor(): Promise<Actor | null> {
 
   const activeWeek = activeWeekRow.data?.week_number ?? null;
   const consent = isConsent(consentEvent.data?.decision) ? consentEvent.data.decision : null;
+  const v0v1Week = activeWeekRow.data?.is_v0_v1 === true;
+  let configuredPhase: "V0" | "REVISION" = "V0";
+  if (researchCode && activeWeek != null && v0v1Week) {
+    const stageRow = await admin
+      .from("participant_week_stages")
+      .select("stage")
+      .eq("research_code", researchCode)
+      .eq("week_number", activeWeek)
+      .order("recorded_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (stageRow.error) throw new Error(stageRow.error.message);
+    if (stageRow.data?.stage === "V1_OPEN") configuredPhase = "REVISION";
+  }
+
+  let questionsRemaining: number | null = null;
+  if (researchCode && activeWeek != null) {
+    const quota = await admin
+      .from("ai_request_quotas")
+      .select("request_limit, used_count")
+      .eq("research_code", researchCode)
+      .eq("week_number", activeWeek)
+      .maybeSingle();
+    if (quota.error) throw new Error(quota.error.message);
+    questionsRemaining = questionsLeft(
+      quota.data
+        ? { requestLimit: quota.data.request_limit, usedCount: quota.data.used_count }
+        : null,
+      quotaLimitFromEnv(process.env.MAX_RAG_REQUESTS_PER_STUDENT_PER_WEEK),
+    );
+  }
 
   return {
     userId,
@@ -89,10 +122,11 @@ export async function readActor(): Promise<Actor | null> {
     status,
     consent,
     phase: resolveAiPhase({
-      v0v1Required: activeWeek == null || activeWeekRow.data?.is_v0_v1 === true,
-      configuredPhase: "V0",
+      v0v1Required: activeWeek == null || v0v1Week,
+      configuredPhase,
     }),
     activeWeek,
+    questionsRemaining,
   };
 }
 
@@ -110,10 +144,10 @@ export function sessionForStudent(actor: Actor): StudentSession {
     email: actor.email,
     role: actor.role,
     aiCoachEnabled: actor.role === "STUDENT" && decision.allowed,
-    coachPanel: actor.condition === "RAG_ASSISTED",
+    coachPanel: actor.condition === "RAG_ASSISTED" && actor.phase === "REVISION",
     activeWeek: actor.activeWeek,
     consent: actor.consent,
-    questionsRemaining: null,
+    questionsRemaining: actor.questionsRemaining,
   });
 }
 

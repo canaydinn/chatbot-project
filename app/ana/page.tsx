@@ -59,7 +59,11 @@ function AnaIcerik() {
           {home.activeWeek?.task ?? "Bu hafta için görev alanı yok."}
         </p>
         <h2 className="mt-4 text-sm font-medium">Kalan süre</h2>
-        <p className="mt-1 text-sm text-stone-700">Süre sınırı tanımlı değil.</p>
+        <p className="mt-1 text-sm text-stone-700">
+          {home.timeRemaining == null
+            ? "Süre sınırı tanımlı değil."
+            : `${home.timeRemaining} saniye`}
+        </p>
         <div className="mt-4 flex flex-col gap-2 sm:flex-row">
           <Link href="/hafta" className="rounded-lg bg-stone-900 px-4 py-3 text-center text-white">
             Haftalık forma git

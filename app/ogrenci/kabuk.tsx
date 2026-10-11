@@ -88,6 +88,11 @@ export function OgrenciKabugu({ children }: { children: React.ReactNode }) {
               <Link className="rounded-lg px-3 py-2 hover:bg-stone-100" href="/onam">
                 Onam
               </Link>
+              {(state.session?.role === "INSTRUCTOR" || state.session?.role === "ADMIN") && (
+                <Link className="rounded-lg px-3 py-2 hover:bg-stone-100" href="/ogretim">
+                  Süre
+                </Link>
+              )}
               <button
                 type="button"
                 onClick={signOut}

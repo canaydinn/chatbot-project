@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { OgrenciKabugu } from "../ogrenci/kabuk";
+import { pairedRevision } from "@/lib/research/stages";
 import { readWeekView, type WeekView } from "@/lib/student/view";
 
 function KarsilastirmaIcerik() {
@@ -47,6 +48,9 @@ function KarsilastirmaIcerik() {
         {week.title ? `${week.title}. ` : ""}
         Kendi ilk metniniz ve revizyonunuz yan yana durur.
       </p>
+      {week.isV0V1 && pairedRevision(week.versions.v0, week.versions.v1) == null && (
+        <p className="text-sm text-stone-700">Eksik sürüm olduğu için fark hesaplanmaz.</p>
+      )}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <article className="rounded-2xl border border-stone-200 bg-white p-4">
           <h2 className="font-medium">V0</h2>

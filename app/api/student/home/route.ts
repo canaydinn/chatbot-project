@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminSupabase } from "@/lib/supabase/admin";
+import { readStageClock, syncStage } from "@/lib/research/lock";
 import { studentActor } from "@/lib/student/http";
 import {
   seal,
@@ -10,6 +11,12 @@ import {
 } from "@/lib/student/view";
 
 export const dynamic = "force-dynamic";
+
+async function remainingSeconds(code: string, week: number) {
+  await syncStage(code, week);
+  const clock = await readStageClock(code, week);
+  return clock.secondsRemaining;
+}
 
 export async function GET() {
   const gate = await studentActor();
@@ -75,7 +82,10 @@ export async function GET() {
               title: titles.get(actor.activeWeek) ?? `Hafta ${actor.activeWeek}`,
               task,
             },
-      timeRemaining: null,
+      timeRemaining:
+        actor.researchCode && actor.activeWeek != null
+          ? await remainingSeconds(actor.researchCode, actor.activeWeek)
+          : null,
       previousWeeks,
       enrollmentNote: actor.researchCode
         ? null

@@ -49,6 +49,9 @@ export function decideAiAccess(input: {
   if (input.phase === "V0" || input.phase === "TEST") {
     return { allowed: false, reason: "Bu aşamada yapay zeka kapalı." };
   }
+  if (input.phase === "REVISION" && input.operation !== "RAG") {
+    return { allowed: false, reason: "Bu aşamada yalnızca sohbet açık." };
+  }
   if (input.consent !== "ACCEPTED") {
     return { allowed: false, reason: "Araştırma onamı yok." };
   }
@@ -80,7 +83,7 @@ export type StudentSession = {
   coachPanel: boolean;
   activeWeek: number | null;
   consent: "ACCEPTED" | "DECLINED" | "WITHDRAWN" | null;
-  questionsRemaining: null;
+  questionsRemaining: number | null;
 };
 
 export function studentSessionPayload(input: StudentSession): StudentSession {
@@ -92,7 +95,12 @@ export function studentSessionPayload(input: StudentSession): StudentSession {
     coachPanel: input.coachPanel,
     activeWeek: input.activeWeek,
     consent: input.consent,
-    questionsRemaining: null,
+    questionsRemaining:
+      typeof input.questionsRemaining === "number" &&
+      Number.isInteger(input.questionsRemaining) &&
+      input.questionsRemaining >= 0
+        ? input.questionsRemaining
+        : null,
   };
 }
 

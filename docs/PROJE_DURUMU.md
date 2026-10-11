@@ -1,5 +1,34 @@
 # Proje durumu
 
+## V0 ve V1 süre kilidi
+
+Hafta 1, 5 ve 9 için süre kilidi ve soru hakkı sayacı yazıldı. Dakika uydurulmadı. Kota sayısı uydurulmadı. Kaynak listesinin içeriği yazılmadı.
+
+Veritabanı: `supabase/migrations/20261011220000_v0_v1_lock.sql`. Bu dosya barındırılan `is_plani` projesine uygulanmadı.
+
+- `weeks.v0_minutes` ve `weeks.v1_minutes` boş başlar. İkisi birlikte boşsa veya eşit değilse aşama açılmaz. Eşit ve pozitif olmaları gerekir. Giriş yeri `/ogretim`. Yalnız `INSTRUCTOR` ve `ADMIN` kaydeder. V1, V0 ile aynı dakikayı kullanır.
+- `participant_week_stages` katılımcı, hafta, aşama (`V0_OPEN`, `V0_LOCKED`, `V1_OPEN`, `V1_LOCKED`), açılış ve bitiş zamanını tutar. Güncelleme yoktur; her geçiş yeni satırdır. Saat `now()` ile ölçülür. İstemci saati yazılmaz.
+- `ai_request_quotas` katılımcı, hafta, limit ve kullanılan sayıyı tutar. Limit `MAX_RAG_REQUESTS_PER_STUDENT_PER_WEEK` ayarından gelir. Ayar boşsa hak gösterilmez ve `/api/chat` “Soru hakkı ayarı yok” der. `.env.example` anahtarı boştur.
+
+Davranış:
+
+- V0 gönderilince kilitlenir ve aynı dakikayla V1 açılır. Özet boşsa gönderim kabul edilmez.
+- V0 aşamasında RAG ve yapay zeka geri bildirimi sunucuda kapalıdır. Kota düşülmez.
+- V1 aşamasında sohbet yalnız `RAG_ASSISTED` öğrenciye açılır. `CONTROL` sohbet bileşenini görmez; onaylı kaynak listesi yer tutucusunu görür. Liste içeriği bekleniyor.
+- Süre bitince taslak varsa gönderim olarak kilitlenir ve durumu `TIMED_OUT` olur. V0 taslağı V1’i açar. Taslak yoksa `missing_data_log` içine `NOT_SUBMITTED` yazılır ve V1 açılmaz. Puan satırı yazılmaz; puan sıfıra çevrilmez.
+- Her gönderimde `revision_duration_seconds` ve `ai_interaction_count` sunucuda hesaplanır. `revision_summary` öğrencinin kısa metnidir. Süre bitiminde özet boş kalır.
+- Sohbet isteği `consume_rag_quota` ile atomik düşer. Hak bitince `/api/chat` reddeder. Öğrenci arayüzü kalan hakkı bu sayıyla gösterir. Para tutarı yoktur.
+- V0 veya V1 metni yoksa karşılaştırma ekranı “Eksik sürüm olduğu için fark hesaplanmaz” der. Sayısal fark üretilmez.
+
+Test: `npm test` 40 testi geçti. Süre, kota ve erişim testleri `lib/research/stages.test.ts`, `lib/research/access.test.ts` ve `supabase/stages.test.ts` içindedir. SQL testi PGlite üzerinde iki migration’ı uygular. V0 sohbet reddi, kilitli satırın değişmemesi, kontrol grubunun V1 sohbetine girmemesi, limit 1 iken ikinci düşüşün boş dönmesi, taslaklı sürenin `TIMED_OUT` yazıp puan satırı açmaması ve taslaksız sürenin `NOT_SUBMITTED` yazıp V1 açmaması geçti. `npx tsc --noEmit` temiz bitti.
+
+Test edilemedi:
+
+- Barındırılan veritabanında yeni migration çalıştırılmadı. Aktif hafta açılırsa uygulama bu tabloları arar; migration uygulanmadan o sorgular hata verir.
+- Giriş yapmış öğrencide süre, kilit, kota ve kontrol listesi tarayıcıda tıklanmadı. Genel anahtarlar tarayıcıya gelmediği için oturum açılamadı.
+- İki eşzamanlı veritabanı bağlantısı kurulmadı. Kota sınırı tek bağlantıda art arda iki çağrıyla görüldü.
+- Canlı sohbet modeli çağrılmadı.
+
 ## Düzeltmeler
 
 Yeni özellik eklenmedi. Beş karar uygulandı.
@@ -22,22 +51,22 @@ Test edilemedi:
 
 ## Öğrenci arayüzü
 
-Veritabanı katmanı bu işe başlarken duruyordu. Şema, RLS ve testler yerindeydi. Arayüz o katmana bağlandı. V0/V1 zaman kilidi yazılmadı.
+Veritabanı katmanı bu işe başlarken duruyordu. Şema, RLS ve testler yerindeydi. Arayüz o katmana bağlandı. V0/V1 süre kilidi sonraki bölümde yazıldı.
 
 Ekranlar:
 
 - `/` e-posta ve altı haneli kod. Doğrulama sonrası `/onam`.
 - `/onam` yer tutucu bilgilendirme. Katılmayan öğrenci ders ekranına gider. Onam satırı, etik alanlar boşken veritabanı tetiği yüzünden yazılamaz; ekran bunu söyler ve dersi kapatmaz.
 - `/ana` aktif haftanın başlığı ve görev etiketleri, kalan süre, önceki hafta özetleri.
-- `/hafta` `weekly_form_fields` alanları. Yazarken taslak önce tarayıcıda, araştırma kodu varsa `events` içinde `FORM_DRAFT` olarak durur. Gönder, boşsa V0, o doluysa V1 satırı ekler. İkisi de varken satır değiştirilmez. Bu bir süre kilidi değildir.
-- Sohbet paneli yalnızca sunucu `coachPanel` alanını `true` döndürünce yüklenir. Bu alan `study_condition = RAG_ASSISTED` iken doğrudur. Kontrol grubunda bileşen kurulmaz. `/api/chat` yine sunucuda grubu reddeder. Üst yazı: kalan soru hakkı henüz tanımlı değil. Kota kolonu yok; sayı uydurulmadı.
+- `/hafta` `weekly_form_fields` alanları. Yazarken taslak önce tarayıcıda, araştırma kodu varsa `events` içinde `FORM_DRAFT` olarak durur. V0/V1 haftasında gönderim sunucudaki aşama işlevine gider ve kısa revizyon özeti ister. Diğer haftalarda gönder, boşsa V0, o doluysa V1 satırı ekler.
+- Sohbet paneli yalnızca sunucu `coachPanel` alanını `true` döndürünce yüklenir. Bu alan `RAG_ASSISTED` ve açık V1 aşamasında doğrudur. Kontrol grubu V1’de kaynak listesi yer tutucusunu görür. `/api/chat` grubu ve aşamayı sunucuda reddeder. Kalan soru hakkı, kota satırı veya ayar varsa gerçek sayıdır. Ayar yoksa “Soru hakkı ayarı yok” yazar.
 - Nitel kart: güçlü yönler, eksik kanıt, desteksiz varsayım, tutarsızlık, önerilen revizyon. Kaynak tablo yok; hepsi boş durumdadır.
 - `/karsilastirma` öğrencinin kendi V0 ve V1 metinleri. Dar ekranda alt alta, geniş ekranda yan yana.
 - İş planı dosyası `/api/student/file` ile okunur. Metin çıkmazsa Türkçe hata gösterilir. Bu uç gömme yapmaz. Eski `/api/upload` gömmesi durur ve RAG kapısından geçer; yeni ekran onu çağırmaz.
 
-Puan kolonları öğrenci yanıtına seçilmez. İstemci, oturum ve hafta JSON'undan izinli alanları ayıklar; `questionsRemaining` her zaman `null` kalır. Eski A–F düğmeleri ve bölüm puanı satırı kalktı. `/chat` `/hafta` adresine gider.
+Puan kolonları öğrenci yanıtına seçilmez. İstemci, oturum ve hafta JSON'undan izinli alanları ayıklar. `questionsRemaining` ve `timeRemaining` negatif olmayan tam sayıysa durur; bozuk veya eksik değerde `null` kalır. Eski A–F düğmeleri ve bölüm puanı satırı kalktı. `/chat` `/hafta` adresine gider.
 
-Kalan süre ve soru hakkı için tabloda kolon yok. İkisi de “tanımlı değil” diye gösterilir.
+Kalan süre, açık aşamanın bitişinden sunucu saatiyle saniye olarak gelir. Dakika boşsa “Süre henüz girilmedi” denir.
 
 Test: `npm test` 22 testi geçti. Öğrenci görünümü, puan anahtarının istemci durumuna girmemesi ve dosya hata metinleri bu sayıya dahildir.
 

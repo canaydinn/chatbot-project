@@ -46,6 +46,34 @@ describe("yapay zeka erişimi", () => {
     assert.equal(decideAiAccess({ ...openRag, consent: null }).allowed, false);
   });
 
+  it("V0 sırasında sohbeti reddeder", () => {
+    assert.equal(decideAiAccess({ ...openRag, phase: "V0", operation: "RAG" }).allowed, false);
+    assert.equal(
+      decideAiAccess({ ...openRag, phase: "V0", operation: "AI_FEEDBACK" }).allowed,
+      false,
+    );
+  });
+
+  it("kontrol grubunu V1 sohbetine almaz", () => {
+    assert.equal(
+      decideAiAccess({
+        ...openRag,
+        phase: "REVISION",
+        condition: "CONTROL",
+        operation: "RAG",
+      }).allowed,
+      false,
+    );
+    assert.equal(
+      decideAiAccess({ ...openRag, phase: "REVISION", operation: "RAG" }).allowed,
+      true,
+    );
+    assert.equal(
+      decideAiAccess({ ...openRag, phase: "REVISION", operation: "AI_FEEDBACK" }).allowed,
+      false,
+    );
+  });
+
   it("öğrenci olmayan rolün RAG ve gömme çağrısını reddeder", () => {
     assert.equal(decideAiAccess({ ...openRag, role: "INSTRUCTOR" }).allowed, false);
     assert.equal(
@@ -83,6 +111,8 @@ describe("gizli puan ve kör paket", () => {
     assert.equal(payload.role, "INSTRUCTOR");
     assert.equal(payload.coachPanel, false);
     assert.equal(payload.questionsRemaining, null);
+    const counted = studentSessionPayload({ ...payload, questionsRemaining: 2 });
+    assert.equal(counted.questionsRemaining, 2);
     assert.equal(payload.consent, "DECLINED");
     assertStudentSessionShape(payload);
     assertNoResearchScores(payload);

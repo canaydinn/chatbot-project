@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { Loader2, Send } from "lucide-react";
 
-export function SohbetPaneli() {
+export function SohbetPaneli({ remaining }: { remaining: number | null }) {
+  const [left, setLeft] = useState(remaining);
   const chat = useChat({
     transport: new DefaultChatTransport({ api: "/api/chat" }),
   });
@@ -14,10 +15,34 @@ export function SohbetPaneli() {
   const [input, setInput] = useState("");
   const [sendError, setSendError] = useState("");
 
+  useEffect(() => {
+    setLeft(remaining);
+  }, [remaining]);
+
+  useEffect(() => {
+    if (isLoading) return;
+    let cancelled = false;
+    fetch("/api/student/week")
+      .then(async (response) => {
+        const body: unknown = await response.json().catch(() => null);
+        if (!response.ok || !body || typeof body !== "object" || !("questionsRemaining" in body)) return;
+        const value = (body as { questionsRemaining: unknown }).questionsRemaining;
+        if (!cancelled && typeof value === "number" && Number.isInteger(value) && value >= 0) {
+          setLeft(value);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoading, messages.length]);
+
   return (
     <section className="rounded-2xl border border-stone-200 bg-white p-4">
       <h2 className="text-lg font-semibold">Sohbet</h2>
-      <p className="mt-1 text-sm text-stone-600">Bu hafta kalan soru hakkı: henüz tanımlanmadı</p>
+      <p className="mt-1 text-sm text-stone-600">
+        {left == null ? "Soru hakkı ayarı yok." : `Bu hafta kalan soru hakkı: ${left}`}
+      </p>
       <div className="mt-4 max-h-96 space-y-3 overflow-y-auto">
         {messages.length === 0 && (
           <p className="text-sm text-stone-500">
