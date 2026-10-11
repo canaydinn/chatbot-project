@@ -59,7 +59,10 @@ const STUDENT_SESSION_KEYS = [
   "email",
   "role",
   "aiCoachEnabled",
+  "coachPanel",
   "activeWeek",
+  "consent",
+  "questionsRemaining",
 ] as const;
 
 export type StudentSession = {
@@ -67,7 +70,10 @@ export type StudentSession = {
   email: string;
   role: string;
   aiCoachEnabled: boolean;
+  coachPanel: boolean;
   activeWeek: number | null;
+  consent: "ACCEPTED" | "DECLINED" | "WITHDRAWN" | null;
+  questionsRemaining: null;
 };
 
 export function studentSessionPayload(input: StudentSession): StudentSession {
@@ -76,7 +82,10 @@ export function studentSessionPayload(input: StudentSession): StudentSession {
     email: input.email,
     role: "STUDENT",
     aiCoachEnabled: input.aiCoachEnabled,
+    coachPanel: input.coachPanel,
     activeWeek: input.activeWeek,
+    consent: input.consent,
+    questionsRemaining: null,
   };
 }
 

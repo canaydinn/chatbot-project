@@ -1,5 +1,28 @@
 # Proje durumu
 
+## Öğrenci arayüzü
+
+Veritabanı katmanı bu işe başlarken duruyordu. Şema, RLS ve testler yerindeydi. Arayüz o katmana bağlandı. V0/V1 zaman kilidi yazılmadı.
+
+Ekranlar:
+
+- `/` e-posta ve altı haneli kod. Doğrulama sonrası `/onam`.
+- `/onam` yer tutucu bilgilendirme. Katılmayan öğrenci ders ekranına gider. Onam satırı, etik alanlar boşken veritabanı tetiği yüzünden yazılamaz; ekran bunu söyler ve dersi kapatmaz.
+- `/ana` aktif haftanın başlığı ve görev etiketleri, kalan süre, önceki hafta özetleri.
+- `/hafta` `weekly_form_fields` alanları. Yazarken taslak önce tarayıcıda, araştırma kodu varsa `events` içinde `FORM_DRAFT` olarak durur. Gönder, boşsa V0, o doluysa V1 satırı ekler. İkisi de varken satır değiştirilmez. Bu bir süre kilidi değildir.
+- Sohbet paneli yalnızca sunucu `coachPanel` alanını `true` döndürünce yüklenir. Bu alan `study_condition = RAG_ASSISTED` iken doğrudur. Kontrol grubunda bileşen kurulmaz. `/api/chat` yine sunucuda grubu reddeder. Üst yazı: kalan soru hakkı henüz tanımlı değil. Kota kolonu yok; sayı uydurulmadı.
+- Nitel kart: güçlü yönler, eksik kanıt, desteksiz varsayım, tutarsızlık, önerilen revizyon. Kaynak tablo yok; hepsi boş durumdadır.
+- `/karsilastirma` öğrencinin kendi V0 ve V1 metinleri. Dar ekranda alt alta, geniş ekranda yan yana.
+- İş planı dosyası `/api/student/file` ile okunur. Metin çıkmazsa Türkçe hata gösterilir. Bu uç gömme yapmaz. Eski `/api/upload` gömmesi durur ve RAG kapısından geçer; yeni ekran onu çağırmaz.
+
+Puan kolonları öğrenci yanıtına seçilmez. İstemci, oturum ve hafta JSON'undan izinli alanları ayıklar; `questionsRemaining` her zaman `null` kalır. Eski A–F düğmeleri ve bölüm puanı satırı kalktı. `/chat` `/hafta` adresine gider.
+
+Kalan süre ve soru hakkı için tabloda kolon yok. İkisi de “tanımlı değil” diye gösterilir.
+
+Test: `npm test` 22 testi geçti. Öğrenci görünümü, puan anahtarının istemci durumuna girmemesi ve dosya hata metinleri bu sayıya dahildir.
+
+Tarayıcı: giriş sayfası, `/ana`, `/hafta`, `/onam`, `/karsilastirma` ve `/chat` açıldı. `/chat` haftalık forma döndü. Oturumsuz API çağrıları 503 ve `Oturum hizmeti yapılandırılmamış` döndürdü; yanıtta puan alanı yoktu. 390 piksel genişlikte kabuk taşmadı. Genel Supabase anahtarları tarayıcıya gelmediği için kod gönderilemedi. Giriş yapmış öğrencide form, onam, sohbet, dosya ve sürüm ekranları tıklanarak denenemedi.
+
 ## Veritabanı katmanı
 
 Şema `supabase/migrations/20261011180000_research_schema.sql` içindedir. Bu dosya, önceki migration’daki eski tablo adlarını kaldırıp aşağıdaki tabloları kurar. Hafta 5, verilen kararla V0/V1 haftasıdır. Form alanları `docs/HAFTALIK_ICERIK.md` metninden yazıldı. Etik onay değerleri boş bırakıldı.
@@ -22,7 +45,7 @@ Doğrulanamadı:
 
 - Barındırılan Supabase projesine bağlanılmadı. Gerçek `auth.uid()`, e-posta kodunun iletilmesi ve `service_role` anahtarının RLS davranışına karşı çalıştırma yok.
 - Google Sheets okunmadı. Aktarım betiği çalıştırılmadı.
-- Arayüz bu aşamada tarayıcıda denenmedi.
+- Arayüzün tarayıcı denemesi yukarıdaki öğrenci arayüzü bölümündedir. Giriş yapmış akış, anahtarlar tarayıcıya gelmediği için denenemedi.
 
 Aşağıdaki bölümler, bu şemadan önceki dosya okumasını anlatır. Kimlik tabloları artık `research_identity_map`, `participants`, `consents` ve `weeks` adlarını kullanır.
 

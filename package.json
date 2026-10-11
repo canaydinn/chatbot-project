@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test lib/research/access.test.ts supabase/rls.test.ts scripts/import-legacy-sheets.test.ts",
+    "test": "tsx --test lib/research/access.test.ts lib/student/view.test.ts lib/files/extract.test.ts supabase/rls.test.ts scripts/import-legacy-sheets.test.ts",
     "process-yonerge": "tsx scripts/process-yonerge.ts"
   },
   "dependencies": {

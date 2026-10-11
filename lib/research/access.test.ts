@@ -59,10 +59,17 @@ describe("gizli puan ve kör paket", () => {
     const payload = studentSessionPayload({
       userId: "u1",
       email: "a@b.c",
-      role: "STUDENT",
+      role: "INSTRUCTOR",
       aiCoachEnabled: true,
+      coachPanel: false,
       activeWeek: 1,
+      consent: "DECLINED",
+      questionsRemaining: null,
     });
+    assert.equal(payload.role, "STUDENT");
+    assert.equal(payload.coachPanel, false);
+    assert.equal(payload.questionsRemaining, null);
+    assert.equal(payload.consent, "DECLINED");
     assertStudentSessionShape(payload);
     assertNoResearchScores(payload);
   });

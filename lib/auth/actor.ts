@@ -109,7 +109,10 @@ export function sessionForStudent(actor: Actor): StudentSession {
     email: actor.email,
     role: actor.role,
     aiCoachEnabled: actor.role === "STUDENT" && decision.allowed,
+    coachPanel: actor.condition === "RAG_ASSISTED",
     activeWeek: actor.activeWeek,
+    consent: actor.consent,
+    questionsRemaining: null,
   });
 }
 

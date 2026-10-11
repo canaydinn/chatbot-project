@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { QdrantClient } from '@qdrant/js-client-rest';
 import OpenAI from 'openai';
-import mammoth from 'mammoth';
+import { gateOperation, readActor } from '@/lib/auth/actor';
+import { ExtractionError, extractUploadedText } from '@/lib/files/extract';
 
 // Qdrant client'ı oluştur
 function getQdrantClient() {
@@ -164,46 +165,6 @@ async function upsertWithRetry(
   }
 }
 
-async function extractTextFromUploadedFile(file: File): Promise<string> {
-  const name = (file.name || '').toLowerCase();
-  const ext = name.includes('.') ? name.slice(name.lastIndexOf('.')) : '';
-
-  if (ext === '.txt') {
-    return await file.text();
-  }
-
-  const buffer = Buffer.from(await file.arrayBuffer());
-
-  if (ext === '.docx') {
-    const result = await mammoth.extractRawText({ buffer });
-    return result.value;
-  }
-
-  if (ext === '.pdf') {
-    const nodePath = await import('path');
-    const { pathToFileURL } = await import('url');
-    const { PDFParse } = await import('pdf-parse');
-    // require.resolve ile modül sisteminden kesin yolu al; fallback: process.cwd()
-    let pdfParseDir: string;
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      pdfParseDir = nodePath.dirname(require.resolve('pdf-parse'));
-    } catch {
-      pdfParseDir = nodePath.join(process.cwd(), 'node_modules/pdf-parse/dist/pdf-parse/cjs');
-    }
-    const workerAbsPath = nodePath.join(pdfParseDir, 'pdf.worker.mjs');
-    const workerUrl = pathToFileURL(workerAbsPath).href;
-    console.log('[PDF] workerUrl:', workerUrl);
-    PDFParse.setWorker(workerUrl);
-    const parser = new PDFParse({ data: buffer });
-    const result = await parser.getText();
-    await parser.destroy();
-    return result.text || '';
-  }
-
-  throw new Error(`Unsupported file format: ${ext || '(no extension)'}. Supported formats: .txt, .pdf, .docx`);
-}
-
 export async function POST(req: NextRequest) {
   try {
     // Environment variable kontrolü
@@ -215,13 +176,26 @@ export async function POST(req: NextRequest) {
     }
 
     // Request body'yi al
+    let actor;
+    try {
+      actor = await readActor();
+    } catch {
+      return NextResponse.json({ error: 'Oturum hizmeti yapılandırılmamış.' }, { status: 503 });
+    }
+    if (!actor) {
+      return NextResponse.json({ error: 'Oturum yok.' }, { status: 401 });
+    }
+    const access = gateOperation(actor, 'EMBEDDING');
+    if (!access.allowed || !actor.researchCode) {
+      return NextResponse.json({ error: access.reason }, { status: 403 });
+    }
+
     const formData = await req.formData();
     const file = formData.get('file') as File;
-    const email = formData.get('email') as string;
 
-    if (!file || !email) {
+    if (!file) {
       return NextResponse.json(
-        { error: 'File and email are required' },
+        { error: 'Dosya gerekli.' },
         { status: 400 }
       );
     }
@@ -229,17 +203,13 @@ export async function POST(req: NextRequest) {
     // Dosyayı oku (.txt, .pdf, .docx)
     let text = '';
     try {
-      text = await extractTextFromUploadedFile(file);
+      text = await extractUploadedText(file);
     } catch (e: unknown) {
+      const message = e instanceof ExtractionError
+        ? e.message
+        : 'Dosyadan metin çıkarılamadı. Dosyayı kontrol edip yeniden deneyin.';
       return NextResponse.json(
-        { error: getErrorMessage(e) || 'Unsupported file type' },
-        { status: 400 }
-      );
-    }
-
-    if (!text || text.trim().length === 0) {
-      return NextResponse.json(
-        { error: 'Could not extract any text from the uploaded file' },
+        { error: message },
         { status: 400 }
       );
     }
@@ -247,8 +217,8 @@ export async function POST(req: NextRequest) {
     console.log(`File uploaded: ${file.name}, extracted text size: ${text.length} characters`);
 
     // Collection adı (e-posta ID'sine göre)
-    const emailHash = Buffer.from(email).toString('base64').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 50);
-    const collectionName = `user_${emailHash}`;
+    const safeCode = actor.researchCode.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 50);
+    const collectionName = `plan_${safeCode}`;
 
     // Qdrant ve OpenAI client'ları
     const qdrantClient = getQdrantClient();
