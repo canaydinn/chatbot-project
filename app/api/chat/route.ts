@@ -3,6 +3,7 @@ import { streamText } from 'ai';
 import { QdrantClient } from '@qdrant/js-client-rest';
 import OpenAI from 'openai';
 import { gateOperation, readActor } from '@/lib/auth/actor';
+import { publicChatErrorBody } from '@/lib/api/chat-error';
 
 // Qdrant client'ı oluştur
 function getQdrantClient() {
@@ -258,10 +259,7 @@ export async function POST(req: Request) {
     } catch (error) {
       console.error('Error creating embedding:', error);
       return new Response(
-        JSON.stringify({ 
-          error: 'Failed to create embedding',
-          details: error instanceof Error ? error.message : 'Unknown error'
-        }),
+        JSON.stringify(publicChatErrorBody()),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       );
     }
@@ -489,51 +487,12 @@ Kullanıcının sorusunu yanıtlarken yukarıdaki bağlama dayan. ${hasUserFile 
     return result.toUIMessageStreamResponse({
       originalMessages: messages,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in chat API:', error);
-    const errorMessage = error instanceof Error ? error.message : 'An error occurred';
-    const errorStack = error instanceof Error ? error.stack : undefined;
-    
-    // Vercel'de logları görmek için detaylı loglama
-    console.error('=== API Error ===');
-    console.error('Message:', errorMessage);
-    console.error('Stack:', errorStack);
-    console.error('Error object:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
-    console.error('Environment check:', {
-      hasOpenAIKey: !!process.env.OPENAI_API_KEY,
-      hasQdrantUrl: !!process.env.QDRANT_URL,
-      hasQdrantKey: !!process.env.QDRANT_API_KEY,
-      nodeEnv: process.env.NODE_ENV,
+    return new Response(JSON.stringify(publicChatErrorBody()), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
     });
-    
-    // Production'da daha güvenli error mesajı
-    const isDevelopment = process.env.NODE_ENV === 'development';
-    const responseError: any = {
-      error: errorMessage,
-    };
-    
-    // Development'ta stack trace ekle
-    if (isDevelopment) {
-      responseError.stack = errorStack;
-      responseError.fullError = error?.toString();
-    }
-    
-    // Environment variable eksikliği kontrolü
-    if (!process.env.OPENAI_API_KEY) {
-      responseError.hint = 'OPENAI_API_KEY environment variable is missing. Please add it in Vercel Settings > Environment Variables.';
-    } else if (!process.env.QDRANT_URL) {
-      responseError.hint = 'QDRANT_URL environment variable is missing. Please add it in Vercel Settings > Environment Variables.';
-    }
-    
-    return new Response(
-      JSON.stringify(responseError),
-      {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    );
   }
 }
 

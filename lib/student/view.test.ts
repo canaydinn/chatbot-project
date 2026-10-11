@@ -53,7 +53,7 @@ describe("öğrenci görünümü", () => {
     const session = readStudentSession({
       userId: "u1",
       email: "a@b.c",
-      role: "STUDENT",
+      role: "INSTRUCTOR",
       aiCoachEnabled: false,
       coachPanel: false,
       activeWeek: null,
@@ -61,6 +61,7 @@ describe("öğrenci görünümü", () => {
       questionsRemaining: 4,
       total_score: 90,
     });
+    assert.equal(session.role, "INSTRUCTOR");
     assert.equal(session.questionsRemaining, null);
     assert.equal(session.coachPanel, false);
     assert.equal("total_score" in session, false);

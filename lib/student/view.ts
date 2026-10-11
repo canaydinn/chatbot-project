@@ -164,7 +164,7 @@ export function readStudentSession(value: unknown): StudentSession {
   const payload = studentSessionPayload({
     userId: typeof row.userId === "string" ? row.userId : "",
     email: typeof row.email === "string" ? row.email : "",
-    role: "STUDENT",
+    role: typeof row.role === "string" ? row.role : "",
     aiCoachEnabled: row.aiCoachEnabled === true,
     coachPanel: row.coachPanel === true,
     activeWeek: typeof row.activeWeek === "number" ? row.activeWeek : null,

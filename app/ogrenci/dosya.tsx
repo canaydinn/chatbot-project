@@ -42,6 +42,36 @@ export function DosyaYukleme() {
     }
   }
 
+  async function removeIndex() {
+    setStatus("loading");
+    setMessage("");
+    try {
+      const response = await fetch("/api/student/file", { method: "DELETE" });
+      const data: unknown = await response.json().catch(() => null);
+      const record =
+        data && typeof data === "object"
+          ? (data as { error?: unknown; submissions?: unknown })
+          : {};
+      if (!response.ok) {
+        setStatus("error");
+        setMessage(
+          typeof record.error === "string" ? record.error : "Arama dizini silinemedi.",
+        );
+        return;
+      }
+      setExcerpt("");
+      setStatus("done");
+      setMessage(
+        record.submissions === "keep"
+          ? "Arama dizinindeki noktalar silindi. Gönderim satırları duruyor."
+          : "Arama dizinindeki noktalar silindi.",
+      );
+    } catch {
+      setStatus("error");
+      setMessage("Sunucuya bağlanılamadı. Bağlantınızı kontrol edip yeniden deneyin.");
+    }
+  }
+
   return (
     <section className="rounded-2xl border border-stone-200 bg-white p-4">
       <h2 className="text-lg font-semibold">İş planı dosyası</h2>
@@ -62,6 +92,14 @@ export function DosyaYukleme() {
           }}
         />
       </label>
+      <button
+        type="button"
+        onClick={() => void removeIndex()}
+        disabled={status === "loading"}
+        className="mt-3 rounded-lg border border-stone-300 px-4 py-3 text-sm disabled:opacity-50"
+      >
+        Kaldır
+      </button>
       {status === "loading" && (
         <p className="mt-3 flex items-center gap-2 text-sm text-stone-600">
           <Loader2 className="h-4 w-4 animate-spin" />

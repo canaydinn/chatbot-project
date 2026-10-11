@@ -33,12 +33,19 @@ export function resolveAiPhase(input: {
 }
 
 export function decideAiAccess(input: {
+  role: string;
   condition: StudyCondition | null;
   status: ParticipantStatus | null;
   consent: "ACCEPTED" | "DECLINED" | "WITHDRAWN" | null;
   phase: AiPhase;
   operation: AiOperation;
 }): AccessDecision {
+  if (
+    (input.operation === "RAG" || input.operation === "EMBEDDING") &&
+    input.role !== "STUDENT"
+  ) {
+    return { allowed: false, reason: "Yalnızca öğrenci rolü bu çağrıyı yapabilir." };
+  }
   if (input.phase === "V0" || input.phase === "TEST") {
     return { allowed: false, reason: "Bu aşamada yapay zeka kapalı." };
   }
@@ -80,7 +87,7 @@ export function studentSessionPayload(input: StudentSession): StudentSession {
   return {
     userId: input.userId,
     email: input.email,
-    role: "STUDENT",
+    role: input.role,
     aiCoachEnabled: input.aiCoachEnabled,
     coachPanel: input.coachPanel,
     activeWeek: input.activeWeek,

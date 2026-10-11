@@ -1,5 +1,25 @@
 # Proje durumu
 
+## Düzeltmeler
+
+Yeni özellik eklenmedi. Beş karar uygulandı.
+
+- `/chat` ve `/hafta` sunucuda `readActor` ile bakılır. Oturum yoksa girişe dönülür. Araştırma kodu yoksa form açılmaz; “Araştırma kodunuz yok” mesajı gösterilir. Kod varsa `/chat` yine `/hafta` adresine gider.
+- `decideAiAccess` RAG ve gömme çağrısını yalnız `STUDENT` rolüne açar. Diğer koşullar durur. `AI_FEEDBACK` bu rol kuralının dışındadır.
+- `studentSessionPayload` gelen rolü olduğu gibi döndürür.
+- `/api/chat` hata gövdesi sabit bir cümledir. İleti ve yığın izi yalnız sunucu günlüğüne yazılır.
+- Kaldır düğmesi öğrencinin `plan_<kod>` arama dizinini siler. `submissions` satırlarına dokunmaz. Aynı ayrım onam yer tutucusunda yazılıdır.
+- Gömme yüklemesi yeni dosyadan önce aynı kodun dizinini silip yeniden kurar. Parça sayısı düşünce eski yüksek indeksler kalmaz. Metin çıkaran `/api/student/file` noktası yazmaz.
+
+Test: `npm test` 28 testi geçti. Sayfa kararı, rol kapısı, gerçek rol, hata gövdesi, dizin silme ve yüksek indeks temizliği bu sayıdadır.
+
+Test edilemedi:
+
+- Giriş yapmış oturum ve kodsuz kullanıcı tarayıcıda denenemedi. Genel anahtarlar olmadığı için sayfalar “Oturum hizmeti yapılandırılmamış” dedi. `/hafta` ve `/chat` bu mesajı sunucuda bastı; form açılmadı.
+- Canlı Qdrant koleksiyonu silinmedi ve yeni dosyayla değiştirilmedi.
+- Canlı sohbet hatası üretilmedi. Gövdenin ileti taşımadığı birim testiyle görüldü.
+- Gönderim satırlarının durduğu canlı veritabanında çalıştırılmadı. Silme işlevi gönderim tablosu almaz ve `submissions: "keep"` döner.
+
 ## Öğrenci arayüzü
 
 Veritabanı katmanı bu işe başlarken duruyordu. Şema, RLS ve testler yerindeydi. Arayüz o katmana bağlandı. V0/V1 zaman kilidi yazılmadı.

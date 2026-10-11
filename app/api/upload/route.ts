@@ -3,6 +3,7 @@ import { QdrantClient } from '@qdrant/js-client-rest';
 import OpenAI from 'openai';
 import { gateOperation, readActor } from '@/lib/auth/actor';
 import { ExtractionError, extractUploadedText } from '@/lib/files/extract';
+import { planCollectionName, replaceSearchPoints } from '@/lib/files/index';
 
 // Qdrant client'ı oluştur
 function getQdrantClient() {
@@ -216,15 +217,19 @@ export async function POST(req: NextRequest) {
 
     console.log(`File uploaded: ${file.name}, extracted text size: ${text.length} characters`);
 
-    // Collection adı (e-posta ID'sine göre)
-    const safeCode = actor.researchCode.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 50);
-    const collectionName = `plan_${safeCode}`;
+    const collectionName = planCollectionName(actor.researchCode);
 
     // Qdrant ve OpenAI client'ları
     const qdrantClient = getQdrantClient();
     const openaiClient = getOpenAIClient();
 
-    await ensureCollectionReady(qdrantClient, collectionName);
+    await replaceSearchPoints(
+      {
+        deleteCollection: (name) => qdrantClient.deleteCollection(name),
+        createCollection: (name, config) => qdrantClient.createCollection(name, config),
+      },
+      actor.researchCode,
+    );
 
     // Metni chunk'lara ayır
     const chunks = chunkText(text, 1000, 200);

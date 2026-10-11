@@ -98,6 +98,7 @@ export async function readActor(): Promise<Actor | null> {
 
 export function sessionForStudent(actor: Actor): StudentSession {
   const decision = decideAiAccess({
+    role: actor.role,
     condition: actor.condition,
     status: actor.status,
     consent: actor.consent,
@@ -118,6 +119,7 @@ export function sessionForStudent(actor: Actor): StudentSession {
 
 export function gateOperation(actor: Actor, operation: AiOperation) {
   return decideAiAccess({
+    role: actor.role,
     condition: actor.condition,
     status: actor.status,
     consent: actor.consent,

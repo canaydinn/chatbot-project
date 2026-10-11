@@ -71,7 +71,8 @@ function OnamFormu() {
       </p>
       <p className="text-sm leading-6 text-stone-700">
         Burada araştırmanın amacı, toplanacak bilgiler, saklama süresi ve çekilme yolu
-        yazılacaktır. Bu paragraf onaylı bir onam metni değildir.
+        yazılacaktır. Dosyayı kaldırmak arama dizinindeki noktaları siler. Araştırma
+        kaydı olan gönderim satırları silinmez. Bu paragraf onaylı bir onam metni değildir.
       </p>
       <p className="text-sm text-stone-600">{consentLabel}</p>
       {message && (

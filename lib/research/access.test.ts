@@ -13,6 +13,7 @@ import {
 
 describe("yapay zeka erişimi", () => {
   const openRag = {
+    role: "STUDENT",
     condition: "RAG_ASSISTED" as const,
     status: "ACTIVE" as const,
     consent: "ACCEPTED" as const,
@@ -45,6 +46,19 @@ describe("yapay zeka erişimi", () => {
     assert.equal(decideAiAccess({ ...openRag, consent: null }).allowed, false);
   });
 
+  it("öğrenci olmayan rolün RAG ve gömme çağrısını reddeder", () => {
+    assert.equal(decideAiAccess({ ...openRag, role: "INSTRUCTOR" }).allowed, false);
+    assert.equal(
+      decideAiAccess({ ...openRag, role: "ADMIN", operation: "EMBEDDING" }).allowed,
+      false,
+    );
+    assert.equal(decideAiAccess({ ...openRag, role: "STUDENT" }).allowed, true);
+    assert.equal(
+      decideAiAccess({ ...openRag, role: "INSTRUCTOR", operation: "AI_FEEDBACK" }).allowed,
+      true,
+    );
+  });
+
   it("V0/V1 haftasında revizyon açılmadan V0 döner", () => {
     assert.equal(resolveAiPhase({ v0v1Required: true, configuredPhase: "V0" }), "V0");
     assert.equal(
@@ -66,7 +80,7 @@ describe("gizli puan ve kör paket", () => {
       consent: "DECLINED",
       questionsRemaining: null,
     });
-    assert.equal(payload.role, "STUDENT");
+    assert.equal(payload.role, "INSTRUCTOR");
     assert.equal(payload.coachPanel, false);
     assert.equal(payload.questionsRemaining, null);
     assert.equal(payload.consent, "DECLINED");
