@@ -7,12 +7,15 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "tsx --test lib/research/access.test.ts supabase/rls.test.ts scripts/import-legacy-sheets.test.ts",
     "process-yonerge": "tsx scripts/process-yonerge.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.1",
     "@ai-sdk/react": "^3.0.3",
     "@qdrant/js-client-rest": "^1.16.2",
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.117.3",
     "ai": "^6.0.3",
     "dotenv": "^17.2.3",
     "googleapis": "^169.0.0",
@@ -26,6 +29,7 @@
     "zod": "^4.2.1"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
