@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, LogIn, Mail } from 'lucide-react';
 import { createBrowserSupabase } from '@/lib/supabase/browser';
@@ -9,6 +9,16 @@ const configured = Boolean(
   process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
 );
 
+function loginError(message: string) {
+  if (/rate limit/i.test(message)) {
+    return 'Çok sayıda mektup istendi. Yaklaşık bir saat bekleyip yeniden deneyin.';
+  }
+  if (/failed to fetch/i.test(message)) {
+    return 'Giriş servisine ulaşılamadı. Az önce çok sayıda mektup istendiyse bir saat bekleyin.';
+  }
+  return message;
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
@@ -16,6 +26,25 @@ export default function LoginPage() {
   const [codeSent, setCodeSent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!configured) return;
+    const params = new URLSearchParams(window.location.search);
+    const arrivedByLink = params.has('code') || params.has('error') || params.has('error_code');
+    if (!arrivedByLink) return;
+    const supabase = createBrowserSupabase();
+    const { data: subscription } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
+        window.history.replaceState({}, '', '/');
+        router.push('/onam');
+        return;
+      }
+      if (event === 'INITIAL_SESSION' && !session) {
+        setError('Bu bağlantı artık geçerli değil. Yeni bir mektup isteyin ve bağlantıyı bir kez açın.');
+      }
+    });
+    return () => subscription.subscription.unsubscribe();
+  }, [router]);
 
   const sendCode = async () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -29,14 +58,15 @@ export default function LoginPage() {
       const supabase = createBrowserSupabase();
       const { error: otpError } = await supabase.auth.signInWithOtp({
         email: email.trim().toLowerCase(),
+        options: { emailRedirectTo: window.location.origin },
       });
       if (otpError) {
-        setError(otpError.message);
+        setError(loginError(otpError.message));
         return;
       }
       setCodeSent(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Kod gönderilemedi.');
+      setError(loginError(err instanceof Error ? err.message : 'Kod gönderilemedi.'));
     } finally {
       setIsLoading(false);
     }
@@ -57,7 +87,7 @@ export default function LoginPage() {
         type: 'email',
       });
       if (verifyError) {
-        setError(verifyError.message);
+        setError(loginError(verifyError.message));
         return;
       }
       router.push('/onam');
@@ -80,7 +110,7 @@ export default function LoginPage() {
               İş Planı Danışmanı
             </h1>
             <p className="text-gray-600 dark:text-gray-400">
-              E-postanıza gelen altı haneli kod ile giriş yapın
+              E-postadaki bağlantıyı bu tarayıcıda açın. Mektupta altı hane varsa onu da yazabilirsiniz.
             </p>
           </div>
 
@@ -140,14 +170,15 @@ export default function LoginPage() {
               className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium flex items-center justify-center gap-2"
             >
               {isLoading && <Loader2 className="w-5 h-5 animate-spin" />}
-              {codeSent ? 'Kodu doğrula' : 'Kod gönder'}
+              {codeSent ? 'Kodu doğrula' : 'Giriş mektubu gönder'}
             </button>
           </div>
 
-          <p className="mt-6 text-xs text-gray-500 dark:text-gray-400">
-            Kodun gelmesi için Supabase sihirli bağlantı şablonunda {'{{ .Token }}'} bulunmalıdır.
-            Şablon değişmezse e-posta bağlantı gönderir.
-          </p>
+          {codeSent && (
+            <p className="mt-4 text-sm text-stone-600 dark:text-gray-300">
+              Mektup gönderildi. Bağlantıyı bu tarayıcıda açın. Yeni mektup için yaklaşık bir saat bekleyin.
+            </p>
+          )}
         </div>
       </div>
     </div>
